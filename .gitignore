@@ -41,3 +41,15 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Large data files (>100MB for GitHub)
+ddi_cardio_or_antithrombotic_labeled*.csv
+publication/data/all_interactions_with_metrics.csv
+publication/figures_advanced/fig_adv09_confidence_analysis.svg
+outputs/embedding_cache.pkl
+
+# Cache directories
+cache/
+.cache/
+results/
+outputs/
