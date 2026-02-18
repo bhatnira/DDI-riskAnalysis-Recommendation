@@ -12,6 +12,7 @@ An agentic, modular architecture for drug-drug interaction (DDI) analysis and po
 - [Usage](#usage)
 - [Agent Details](#agent-details)
 - [API Reference](#api-reference)
+- [External Validation Modules](#-external-validation-modules)
 
 ## 🎯 Overview
 
@@ -92,12 +93,40 @@ Ranks alternatives using four weighted objectives:
 
 ## 📦 Installation
 
+### Quick Setup (Recommended)
+
 ```bash
 # Clone or navigate to the project directory
-cd /path/to/PhRMA-Paper
+cd /path/to/DDI-riskAnalysis-Recommendation
 
-# Install dependencies
+# Run the full setup script (installs Python deps + Ollama LLM)
+./setup.sh
+```
+
+This installs:
+- Python virtual environment with all dependencies
+- Ollama (local LLM for conversational AI)
+- llama3 model (~4.7GB)
+
+### Manual Installation
+
+```bash
+# Install Python dependencies only
 pip install -r requirements.txt
+
+# Optional: Install Ollama separately
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3
+```
+
+### DDI Chat GUI
+
+```bash
+# Start the web interface
+source .venv/bin/activate
+python ddi_chat_gui.py
+
+# Open http://localhost:8080
 ```
 
 ## 🚀 Quick Start
@@ -296,6 +325,72 @@ The system expects a DDI CSV file with the following columns:
 | `severity_numeric` | Numeric severity (1-4) |
 
 **Note**: All antithrombotic drugs are now classified as cardiovascular drugs in the analysis.
+
+## 🔬 External Validation Modules
+
+### FAERS Validation
+
+The system includes FDA Adverse Event Reporting System (FAERS) integration for external validation of risk scores:
+
+```bash
+# Run FAERS validation on sample drugs
+python agents/run_faers_validation.py --sample-size 50
+
+# Generate validation figures
+python agents/run_faers_validation.py --sample-size 100 --generate-figures
+```
+
+```python
+from agents import FAERSClient, FAERSValidator
+
+# Validate individual drug
+client = FAERSClient()
+profile = client.get_drug_profile("Warfarin")
+print(f"Total FAERS reports: {profile.total_reports}")
+print(f"Serious event ratio: {profile.serious_event_ratio:.2%}")
+
+# Batch validation
+validator = FAERSValidator()
+results = validator.validate_drug_risk("Warfarin", network_pri=0.85)
+```
+
+### GNN Risk Assessment (Optional)
+
+Graph Neural Network models for enhanced risk prediction:
+
+```bash
+# Install GNN dependencies
+pip install torch torch_geometric transformers
+
+# Run GNN comparison
+python agents/gnn_risk_assessment.py
+```
+
+```python
+from agents import GNNSeverityPredictor, GNN_AVAILABLE
+
+if GNN_AVAILABLE:
+    predictor = GNNSeverityPredictor()
+    # Train on network topology features
+    predictor.train(data)
+```
+
+### Comprehensive Three-Way Comparison
+
+Compare all risk assessment approaches:
+
+```bash
+# Run full comparison (algorithmic + GNN)
+python agents/comprehensive_comparison.py
+
+# Skip GNN for faster analysis
+python agents/comprehensive_comparison.py --skip-gnn
+```
+
+Output includes:
+- `comparison_results/algorithmic_risk_scores.csv` - Network topology-based risk
+- `comparison_results/comparison_table.md` - Method comparison summary
+- `comparison_results/comparison_results.json` - Full results
 
 ## ⚠️ Disclaimer
 
