@@ -89,6 +89,8 @@ class PolypharmacyAnalyzer:
     def _find_data_file(self) -> str:
         """Auto-detect DDI data file"""
         possible_names = [
+            'data/ddi_cardio_or_antithrombotic_labeled (1).csv',
+            'data/ddi_cardio_or_antithrombotic_labeled.csv',
             'ddi_cardio_or_antithrombotic_labeled (1).csv',
             'ddi_cardio_or_antithrombotic_labeled.csv',
             'ddi_data.csv'

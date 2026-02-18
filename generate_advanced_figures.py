@@ -43,7 +43,10 @@ class AdvancedFigureGenerator:
         print("📊 ADVANCED FIGURES GENERATOR")
         print("=" * 70)
         
-        data_file = 'ddi_cardio_or_antithrombotic_labeled (1).csv'
+        # Try data/ folder first, then root
+        data_file = 'data/ddi_cardio_or_antithrombotic_labeled (1).csv'
+        if not Path(data_file).exists():
+            data_file = 'ddi_cardio_or_antithrombotic_labeled (1).csv'
         print(f"\n📂 Loading data from: {data_file}")
         self.df = pd.read_csv(data_file)
         print(f"   ✓ Loaded {len(self.df):,} interactions")

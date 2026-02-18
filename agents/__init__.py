@@ -61,6 +61,24 @@ from .llm_client import BioMistralClient, OllamaClient, get_llm_client
 from .drug_risk_network import DrugRiskNetwork, DrugNode, DDIEdge
 from .recommender import MultiObjectiveRecommender, AlternativeCandidate
 
+# FAERS External Validation
+from .faers_integration import FAERSClient, FAERSValidator, FAERSDrugProfile
+
+# GNN Risk Assessment (optional - requires torch_geometric)
+try:
+    from .gnn_risk_assessment import (
+        GNNSeverityPredictor, 
+        GNNEmbeddingPredictor, 
+        DrugEmbedder,
+        run_gnn_comparison
+    )
+    GNN_AVAILABLE = True
+except ImportError:
+    GNN_AVAILABLE = False
+
+# Comprehensive Comparison
+from .comprehensive_comparison import ComprehensiveComparison, AlgorithmicRiskAssessor
+
 __all__ = [
     # Base classes
     'BaseAgent',
@@ -84,7 +102,20 @@ __all__ = [
     'DDIEdge',
     # Multi-Objective Recommender (Paper Implementation)
     'MultiObjectiveRecommender',
-    'AlternativeCandidate'
+    'AlternativeCandidate',
+    # FAERS External Validation
+    'FAERSClient',
+    'FAERSValidator',
+    'FAERSDrugProfile',
+    # GNN Risk Assessment
+    'GNN_AVAILABLE',
+    'GNNSeverityPredictor',
+    'GNNEmbeddingPredictor',
+    'DrugEmbedder',
+    'run_gnn_comparison',
+    # Comprehensive Comparison
+    'ComprehensiveComparison',
+    'AlgorithmicRiskAssessor'
 ]
 
 __version__ = '1.0.0'

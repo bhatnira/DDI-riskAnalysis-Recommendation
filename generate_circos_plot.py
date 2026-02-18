@@ -695,7 +695,10 @@ class CircosPlotGenerator:
 
 
 def main():
-    data_path = "ddi_cardio_or_antithrombotic_labeled (1).csv"
+    # Try data/ folder first, then root
+    data_path = "data/ddi_cardio_or_antithrombotic_labeled (1).csv"
+    if not os.path.exists(data_path):
+        data_path = "ddi_cardio_or_antithrombotic_labeled (1).csv"
     generator = CircosPlotGenerator(data_path)
     generator.generate_all()
 

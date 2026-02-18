@@ -42,8 +42,10 @@ class PaperAnalysisGenerator:
         (self.output_dir / "tables").mkdir(exist_ok=True)
         (self.output_dir / "data").mkdir(exist_ok=True)
         
-        # Load data
-        data_path = Path(__file__).parent.parent / "ddi_cardio_or_antithrombotic_labeled (1).csv"
+        # Load data - try data/ folder first
+        data_path = Path(__file__).parent.parent / "data" / "ddi_cardio_or_antithrombotic_labeled (1).csv"
+        if not data_path.exists():
+            data_path = Path(__file__).parent.parent / "ddi_cardio_or_antithrombotic_labeled (1).csv"
         print(f"📂 Loading data from: {data_path}")
         self.df = pd.read_csv(data_path)
         print(f"   ✓ Loaded {len(self.df):,} interactions")

@@ -53,3 +53,25 @@ cache/
 .cache/
 results/
 outputs/
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.ico
+*.svg
+
+# Large files (>100MB for GitHub)
+data/
+external_data/
+knowledge_graph/
+knowledge_graph_real/
+knowledge_graph_enriched/
+knowledge_graph_enriched_full/
+publication_ahrq/data/
+publication_final/data/
+*.pkl
+*.xml
+**/ddi_edges.csv

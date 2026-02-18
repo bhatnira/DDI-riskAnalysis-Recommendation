@@ -28,6 +28,7 @@ Author: AI-based Polypharmacy Research
 Date: February 2026
 """
 
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1055,8 +1056,10 @@ def run_comprehensive_analysis(data_path):
 # ============================================================================
 
 if __name__ == "__main__":
-    # Data path
-    DATA_PATH = "ddi_cardio_or_antithrombotic_labeled (1).csv"
+    # Data path - try data/ folder first
+    DATA_PATH = "data/ddi_cardio_or_antithrombotic_labeled (1).csv"
+    if not os.path.exists(DATA_PATH):
+        DATA_PATH = "ddi_cardio_or_antithrombotic_labeled (1).csv"
     
     # Run comprehensive analysis
     print("\n" + "🔬"*35)

@@ -54,6 +54,8 @@ class PublicationGenerator:
     def _find_data(self) -> str:
         """Find the DDI data file"""
         possible = [
+            'data/ddi_cardio_or_antithrombotic_labeled (1).csv',
+            'data/ddi_cardio_or_antithrombotic_labeled.csv',
             'ddi_cardio_or_antithrombotic_labeled (1).csv',
             'ddi_cardio_or_antithrombotic_labeled.csv'
         ]

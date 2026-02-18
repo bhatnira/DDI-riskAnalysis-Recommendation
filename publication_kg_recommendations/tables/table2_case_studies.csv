@@ -1,0 +1,8 @@
+Original Regimen,Initial Risk,Risk Level,Substitutions,Optimized Risk,Risk Reduction
+"warfarin, aspirin, metoprolol",0.634,HIGH,warfarin→acenocoumarol,0.517,0.117
+"clopidogrel, omeprazole, atorvastatin",0.587,MODERATE,clopidogrel→prasugrel,0.404,0.183
+"simvastatin, amiodarone, lisinopril",0.576,MODERATE,simvastatin→ezetimibe; lisinopril→indapamide,0.541,0.035
+"methotrexate, ibuprofen, prednisone",0.653,HIGH,ibuprofen→diclofenac; methotrexate→cytarabine,0.408,0.245
+"lithium, ibuprofen, hydrochlorothiazide",0.669,HIGH,ibuprofen→acetylsalicylic acid,0.473,0.195
+"fluoxetine, tramadol, alprazolam",0.408,MODERATE,fluoxetine→fluvoxamine,0.408,-0.000
+"digoxin, amiodarone, furosemide",0.772,HIGH,furosemide→sulfamethizole,0.340,0.431

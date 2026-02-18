@@ -3,49 +3,49 @@
     "degree_centrality": {
       "degree_centrality": 1.0,
       "weighted_degree": 0.9966254026850759,
-      "betweenness_centrality": 0.505102906123513,
-      "pri_score": 0.8934559134733595,
+      "betweenness_centrality": 0.5051029061235122,
+      "pri_score": 0.8934559134733597,
       "contraindicated_count": 0.9198811055504788,
-      "major_count": 0.8844085033637906
+      "major_count": 0.8844085033637907
     },
     "weighted_degree": {
       "degree_centrality": 0.9966254026850759,
       "weighted_degree": 1.0,
-      "betweenness_centrality": 0.5167048834760382,
-      "pri_score": 0.9097503624230987,
-      "contraindicated_count": 0.9488272594945736,
-      "major_count": 0.843498212938182
+      "betweenness_centrality": 0.5167048834760372,
+      "pri_score": 0.909750362423099,
+      "contraindicated_count": 0.948827259494574,
+      "major_count": 0.8434982129381818
     },
     "betweenness_centrality": {
-      "degree_centrality": 0.505102906123513,
-      "weighted_degree": 0.5167048834760382,
+      "degree_centrality": 0.5051029061235122,
+      "weighted_degree": 0.5167048834760372,
       "betweenness_centrality": 1.0,
-      "pri_score": 0.5634615280514637,
-      "contraindicated_count": 0.5279803591040577,
-      "major_count": 0.3717336885671086
+      "pri_score": 0.5634615280514623,
+      "contraindicated_count": 0.5279803591040568,
+      "major_count": 0.37173368856710814
     },
     "pri_score": {
-      "degree_centrality": 0.8934559134733595,
-      "weighted_degree": 0.9097503624230987,
-      "betweenness_centrality": 0.5634615280514637,
+      "degree_centrality": 0.8934559134733597,
+      "weighted_degree": 0.909750362423099,
+      "betweenness_centrality": 0.5634615280514623,
       "pri_score": 1.0,
-      "contraindicated_count": 0.913131897229835,
+      "contraindicated_count": 0.9131318972298349,
       "major_count": 0.6825521363717438
     },
     "contraindicated_count": {
       "degree_centrality": 0.9198811055504788,
-      "weighted_degree": 0.9488272594945736,
-      "betweenness_centrality": 0.5279803591040577,
-      "pri_score": 0.913131897229835,
+      "weighted_degree": 0.948827259494574,
+      "betweenness_centrality": 0.5279803591040568,
+      "pri_score": 0.9131318972298349,
       "contraindicated_count": 1.0,
-      "major_count": 0.6307132229881762
+      "major_count": 0.6307132229881763
     },
     "major_count": {
-      "degree_centrality": 0.8844085033637906,
-      "weighted_degree": 0.843498212938182,
-      "betweenness_centrality": 0.3717336885671086,
+      "degree_centrality": 0.8844085033637907,
+      "weighted_degree": 0.8434982129381818,
+      "betweenness_centrality": 0.37173368856710814,
       "pri_score": 0.6825521363717438,
-      "contraindicated_count": 0.6307132229881762,
+      "contraindicated_count": 0.6307132229881763,
       "major_count": 1.0
     }
   },
