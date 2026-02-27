@@ -412,16 +412,37 @@ class DDIKnowledgeGraph:
         """Build DDI edges with mechanism extraction"""
         logger.info("Building interaction edges...")
         
+        # Use recalibrated severity if available (prefer calibrated > recalibrated > label)
+        severity_col = 'severity_label'
+        if 'severity_calibrated' in df.columns:
+            severity_col = 'severity_calibrated'
+            logger.info(f"  Using recalibrated severity column: {severity_col}")
+        elif 'severity_recalibrated' in df.columns:
+            severity_col = 'severity_recalibrated'
+            logger.info(f"  Using recalibrated severity column: {severity_col}")
+        
         for _, row in tqdm(df.iterrows(), desc="Processing DDIs", total=len(df)):
             mechanism = MechanismExtractor.extract_mechanism(row['interaction_description'])
             clinical_effect = MechanismExtractor.extract_clinical_effect(row['interaction_description'])
+            
+            # Get severity - use recalibrated if available, fall back to original
+            severity = row.get(severity_col, row['severity_label'])
+            
+            # Map severity to numeric if using recalibrated column
+            severity_numeric_map = {
+                'Contraindicated interaction': 4,
+                'Major interaction': 3,
+                'Moderate interaction': 2,
+                'Minor interaction': 1
+            }
+            severity_numeric = severity_numeric_map.get(severity, int(row.get('severity_numeric', 2)))
             
             edge = DDIEdge(
                 drug1_id=row['drugbank_id_1'],
                 drug2_id=row['drugbank_id_2'],
                 description=row['interaction_description'],
-                severity=row['severity_label'],
-                severity_numeric=int(row['severity_numeric']),
+                severity=severity,
+                severity_numeric=severity_numeric,
                 confidence=row['severity_confidence'],
                 mechanism=mechanism,
                 clinical_effect=clinical_effect

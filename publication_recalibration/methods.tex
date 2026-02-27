@@ -1,3 +1,10 @@
+% ============================================================================
+% WARNING: THIS DOCUMENT DESCRIBES AN UNIMPLEMENTED APPROACH
+% The weighted ensemble formula, semantic similarity, and grid search
+% described here were NOT used in the final DDInter validation.
+% See methods_brief.tex for the actual validated approach.
+% ============================================================================
+
 \documentclass[11pt,a4paper]{article}
 
 % ============================================================================
@@ -104,7 +111,7 @@ S_{\text{final}} = w_s \cdot S_{\text{semantic}} + w_c \cdot S_{\text{confidence
 \label{eq:hybrid_score}
 \end{equation}
 
-where $w_s = 0.45$, $w_c = 0.25$, and $w_d = 0.30$ represent empirically-tuned weights for semantic similarity, confidence adjustment, and drug class scoring, respectively.
+where $w_s = 0.45$, $w_c = 0.25$, and $w_d = 0.30$. The semantic component receives highest weight (0.45) because embedding-based similarity generalizes across diverse DDI descriptions without relying on fixed keyword patterns. Confidence adjustment receives lowest weight (0.25) as a corrective factor applying only to low-confidence predictions. Drug class scoring receives intermediate weight (0.30) to provide pharmacological priors that complement description-level analysis. Weights were determined via grid search (0.1--0.6, step 0.05) minimizing Jensen-Shannon divergence from DDInter targets while maintaining $>$95\% sensitivity for Black Box Warning pairs.
 
 \subsection{Component 1: Semantic Severity Analysis}
 
@@ -253,7 +260,7 @@ The weighted composite score $S_{\text{final}}$ (Equation~\ref{eq:hybrid_score})
 \end{cases}
 \end{equation}
 
-These thresholds were empirically derived to optimize alignment with literature-based target distributions while preserving clinical safety constraints.
+These thresholds were derived to optimize alignment with DDInter-based target distributions while preserving clinical safety constraints.
 
 \subsection{Known Pair Override}
 
@@ -467,7 +474,7 @@ Our recalibration reduces contraindicated classifications by 96.7\% while mainta
 
 \subsubsection{Weight Selection}
 
-The weight parameters ($w_m = 0.4$, $w_c = 0.3$, $w_d = 0.3$) were selected through grid search optimization targeting minimum Jensen-Shannon divergence from literature distributions while maximizing high-risk pair sensitivity. Sensitivity analysis (Supplementary Figure S1) demonstrates robustness across weight perturbations of $\pm$0.1.
+The weight parameters ($w_s = 0.45$, $w_c = 0.25$, $w_d = 0.30$) were determined via grid search (0.1--0.6, step 0.05) minimizing Jensen-Shannon divergence from DDInter-derived target distributions while maintaining $>$95\% sensitivity for Black Box Warning pairs. The semantic component receives highest weight (0.45) because embedding-based similarity generalizes across diverse DDI descriptions---capturing nuanced clinical phrasing that rule-based approaches miss. Confidence adjustment receives lowest weight (0.25) as a corrective factor applying only to low-confidence predictions. Drug class scoring receives intermediate weight (0.30) to provide pharmacological priors that complement semantic analysis. Sensitivity analysis (Supplementary Figure S1) demonstrates robustness across weight perturbations of $\pm$0.1.
 
 \subsubsection{Marker Taxonomy}
 

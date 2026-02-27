@@ -8,6 +8,12 @@ Creates sophisticated visualizations for the paper including:
 - Interactive-ready plots
 - Sankey diagrams
 - Chord diagrams
+
+DATA INTEGRITY POLICY:
+- All figures must use ACTUAL DATA from the knowledge graph or validation results
+- NO synthetic/fake data generation (np.random.normal/beta/uniform for publication data)
+- Random is ONLY allowed for: layout positions, bootstrap sampling, jitter for visibility
+- See DATA_INTEGRITY_POLICY.md for details
 """
 
 import os
@@ -1183,12 +1189,14 @@ class AdvancedFigureGenerator:
             for r in rec['recommendations']:
                 best = r.get('best_alternative', {})
                 if best:
+                    risk_metrics = best.get('risk_metrics', {})
                     obj_data.append({
                         'target': r.get('target_drug', ''),
-                        'PRI Reduction': best.get('risk_metrics', {}).get('pri_reduction', 0) * 0.35,
-                        'Centrality Red.': best.get('risk_metrics', {}).get('centrality_reduction', 0) * 0.20,
-                        'Phenotype Score': 0.1,  # Placeholder
-                        'Interaction Pen.': 0.15  # Placeholder
+                        'PRI Reduction': risk_metrics.get('pri_reduction', 0) * 0.35,
+                        'Centrality Red.': risk_metrics.get('centrality_reduction', 0) * 0.20,
+                        # Only include metrics that exist in actual data
+                        'Safety Score': risk_metrics.get('safety_score', 0) * 0.25,
+                        'Similarity': risk_metrics.get('similarity', 0) * 0.20
                     })
             
             if obj_data:

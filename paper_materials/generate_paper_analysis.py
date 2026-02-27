@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Paper Analysis Ge        # Build network
-        print("🔗 Building Drug Risk Network...")
-        self.network = DrugRiskNetwork()
-        self.network.build_network(self.df)
-        
-        # Initialize recommender
-        print("💊 Initializing Multi-Objective Recommender...")
-        self.recommender = MultiObjectiveRecommender(self.network)========================
+Paper Analysis Generator
+========================
 Generates comprehensive analysis, figures, and tables for the paper:
 "Risk Assessment and AI-Driven Risk-Aware Alternative Drug Recommendation System"
+
+DATA INTEGRITY POLICY:
+- All figures must use ACTUAL DATA from the knowledge graph or validation results
+- NO synthetic/fake data generation for publication materials
+- See DATA_INTEGRITY_POLICY.md for details
 """
 
 import pandas as pd
@@ -711,25 +710,14 @@ class PaperAnalysisGenerator:
             ax3.set_ylabel('Best Possible PRI Improvement', fontsize=12)
             ax3.set_title('C. PRI Improvement Potential', fontsize=14, fontweight='bold')
         
-        # 4d. ATC similarity vs risk reduction
+        # 4d. ATC similarity vs risk reduction - placeholder (requires actual data)
         ax4 = axes[1, 1]
-        
-        # Simulate different ATC match levels
-        atc_levels = ['Same L4', 'Same L3', 'Same L2', 'Same L1', 'Different']
-        avg_reductions = [0.45, 0.35, 0.25, 0.15, 0.05]  # Hypothetical averages
-        std_reductions = [0.1, 0.12, 0.15, 0.18, 0.2]
-        
-        x = np.arange(len(atc_levels))
-        ax4.bar(x, avg_reductions, yerr=std_reductions, capsize=5,
-               color=[self.colors['success'], self.colors['primary'], 
-                     self.colors['accent'], self.colors['secondary'],
-                     self.colors['danger']])
-        
-        ax4.set_xlabel('ATC Code Similarity Level', fontsize=12)
-        ax4.set_ylabel('Average Risk Reduction', fontsize=12)
+        ax4.text(0.5, 0.5, 'Panel D: Requires empirical\nATC substitution analysis\n(data not available)', 
+                ha='center', va='center', fontsize=12, style='italic',
+                transform=ax4.transAxes)
         ax4.set_title('D. Risk Reduction by ATC Similarity', fontsize=14, fontweight='bold')
-        ax4.set_xticks(x)
-        ax4.set_xticklabels(atc_levels, rotation=15, ha='right')
+        ax4.set_xlabel('(Empirical data required)')
+        ax4.axis('off')
         
         plt.tight_layout()
         self._save_fig('fig4_alternative_discovery')

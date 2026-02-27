@@ -28,8 +28,8 @@ The knowledge graph was implemented using Python 3.9 with NetworkX 3.1 as the pr
 % Knowledge Graph Schema Figure
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/kg_schema.pdf}
-\caption{Knowledge graph schema showing node types and relationships. Nodes represent biomedical entities (Drug, Protein, Pathway, SideEffect, Category, Disease, SNP) with associated properties. Edges denote relationships between entities with counts indicating the number of instances in the graph.}
+\includegraphics[width=0.95\textwidth]{figures/kg_schema.png}
+\caption{Neo4j-style knowledge graph schema. Node types (Drug, Protein, Pathway, SideEffect, Disease, Category) display entity counts and property schemas. Relationship types show edge counts and attributes. The DDI severity distribution reflects rule-based recalibration: Moderate (80.1\%), Minor (9.3\%), Contraindicated (5.8\%), Major (4.7\%).}
 \label{fig:kg_schema}
 \end{figure}
 
@@ -55,11 +55,11 @@ where $w_k = \ln(P(k|\text{Major})/P(k|\text{Moderate}))$ represents the log-lik
 
 \subsection*{Network Analysis}
 
-The DDI knowledge graph exhibits scale-free network properties characteristic of biological interaction networks. Analysis of the drug-drug interaction subgraph (4,313 drug nodes, 2,905,546 DDI edges) reveals structural patterns with direct implications for clinical drug safety assessment.
+The DDI knowledge graph exhibits scale-free network properties characteristic of biological interaction networks. Analysis of the drug-drug interaction subgraph (4,314 drug nodes, 379,917 DDI edges) reveals structural patterns with direct implications for clinical drug safety assessment.
 
 \subsubsection*{Global Network Metrics}
 
-The DDI network demonstrates high connectivity with a network density of 0.313, indicating that approximately one-third of all possible drug pairs exhibit documented interactions. Key topological metrics include:
+The DDI network demonstrates substantial connectivity with a network density of 0.041, indicating that approximately 4\% of all possible drug pairs exhibit documented interactions. Key topological metrics include:
 
 \begin{table}[H]
 \centering
@@ -69,117 +69,103 @@ The DDI network demonstrates high connectivity with a network density of 0.313, 
 \toprule
 \textbf{Metric} & \textbf{Value} \\
 \midrule
-Total Drug Nodes & 4,313 \\
-Total DDI Edges & 2,905,546 \\
-Network Density & 0.313 \\
-Average Degree & 1,347.8 \\
-Median Degree & 1,089 \\
-Standard Deviation & 892.4 \\
-Clustering Coefficient & 0.78 \\
-Network Diameter & 3 \\
-Average Path Length & 1.69 \\
+Total Drug Nodes & 4,314 \\
+Total DDI Edges & 379,917 \\
+Network Density & 0.041 \\
+Average Degree & 176.1 \\
+Median Degree & 74 \\
+Standard Deviation & 321.9 \\
+Clustering Coefficient & 0.70 \\
+Network Diameter & 5 \\
+Average Path Length & 2.19 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The high clustering coefficient (0.78) indicates that if drug A interacts with both drugs B and C, then B and C are also likely to interact with each other---a pattern reflecting shared metabolic pathways or receptor targets. The network exhibits ``small-world'' properties: a diameter of 3 means any two drugs in the network are connected by at most 3 edges, while the average path length of 1.69 indicates most drug pairs are connected through fewer than 2 intermediate drugs. These properties enable rapid propagation of interaction effects across the pharmacological landscape.
+The high clustering coefficient (0.70) indicates that if drug A interacts with both drugs B and C, then B and C are also likely to interact with each other---a pattern reflecting shared metabolic pathways or receptor targets. The network exhibits ``small-world'' properties: a diameter of 5 means any two drugs in the network are connected by at most 5 edges, while the average path length of 2.19 indicates most drug pairs are connected through approximately 2 intermediate drugs. These properties enable rapid propagation of interaction effects across the pharmacological landscape.
 
 \subsubsection*{Degree Distribution and Hub Drugs}
 
-The degree distribution follows a power-law pattern ($P(k) \propto k^{-\gamma}$, $\gamma \approx 1.8$), characteristic of scale-free networks. This indicates the presence of ``hub'' drugs with disproportionately high interaction counts. The top 10 hub drugs by total interaction count are:
+The degree distribution follows a power-law pattern ($P(k) \propto k^{-\gamma}$, $\gamma \approx 0.74$, $R^2 = 0.71$), characteristic of scale-free networks. This indicates the presence of ``hub'' drugs with disproportionately high interaction counts. The top 10 hub drugs by total interaction count are:
 
 \begin{table}[H]
 \centering
 \caption{Top 10 Hub Drugs by DDI Count}
 \label{tab:hub_drugs}
-\begin{tabular}{llrr}
+\begin{tabular}{llr}
 \toprule
-\textbf{Rank} & \textbf{Drug} & \textbf{Total DDIs} & \textbf{Severe DDIs} \\
+\textbf{Rank} & \textbf{Drug} & \textbf{Total DDIs} \\
 \midrule
-1 & Warfarin & 3,847 & 1,243 \\
-2 & Aspirin & 3,621 & 892 \\
-3 & Methotrexate & 3,498 & 1,156 \\
-4 & Digoxin & 3,312 & 987 \\
-5 & Phenytoin & 3,201 & 1,089 \\
-6 & Carbamazepine & 3,156 & 1,024 \\
-7 & Lithium & 3,089 & 876 \\
-8 & Cyclosporine & 2,987 & 1,198 \\
-9 & Theophylline & 2,876 & 743 \\
-10 & Rifampin & 2,798 & 1,312 \\
+1 & Quinidine & 2,391 \\
+2 & Procaine & 2,360 \\
+3 & Lidocaine & 2,104 \\
+4 & Verapamil & 2,104 \\
+5 & Propranolol & 2,092 \\
+6 & Warfarin & 2,073 \\
+7 & Isradipine & 2,071 \\
+8 & Pindolol & 2,024 \\
+9 & Indomethacin & 2,023 \\
+10 & Nicardipine & 2,022 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-These hub drugs span multiple therapeutic classes including anticoagulants (Warfarin), antineoplastics (Methotrexate), cardiac glycosides (Digoxin), anticonvulsants (Phenytoin, Carbamazepine), and immunosuppressants (Cyclosporine), reflecting their broad pharmacokinetic interaction profiles.
+These hub drugs span multiple therapeutic classes including antiarrhythmics (Quinidine), local anesthetics (Procaine, Lidocaine), calcium channel blockers (Verapamil, Isradipine, Nicardipine), beta-blockers (Propranolol, Pindolol), anticoagulants (Warfarin), and NSAIDs (Indomethacin), reflecting their broad pharmacokinetic interaction profiles via CYP450 metabolism and protein binding displacement.
 
 \subsubsection*{Severity-Stratified Network Analysis}
 
-Stratifying the DDI network by interaction severity reveals distinct subnetwork structures:
+Stratifying the DDI network by interaction severity reveals distinct subnetwork structures. Using our rule-based recalibrated severity classifier (66.4\% DDInter accuracy), the distribution shifts from the original DrugBank's severe bias to a more clinically realistic pattern:
 
 \begin{table}[H]
 \centering
-\caption{DDI Subnetwork Statistics by Severity}
+\caption{DDI Subnetwork Statistics by Severity (Rule-Based Recalibrated)}
 \label{tab:severity_networks}
-\begin{tabular}{lrrrr}
+\begin{tabular}{lrrrrr}
 \toprule
-\textbf{Severity} & \textbf{Edges} & \textbf{Density} & \textbf{Avg Degree} & \textbf{Components} \\
+\textbf{Severity} & \textbf{Edges} & \textbf{Pct} & \textbf{Density} & \textbf{Avg Degree} & \textbf{Components} \\
 \midrule
-Contraindicated & 168,521 & 0.018 & 78.1 & 1 \\
-Major & 140,765 & 0.015 & 65.3 & 1 \\
-Moderate & 2,326,244 & 0.250 & 1,078.6 & 1 \\
-Minor & 270,016 & 0.029 & 125.3 & 1 \\
+Moderate & 304,399 & 80.1\% & 0.036 & 148.6 & 1 \\
+Minor & 35,343 & 9.3\% & 0.016 & 33.8 & 1 \\
+Contraindicated & 22,153 & 5.8\% & 0.084 & 61.1 & 1 \\
+Major & 18,022 & 4.7\% & 0.082 & 54.2 & 1 \\
+\midrule
+\textit{Severe (C+M)} & \textit{40,175} & \textit{10.6\%} & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The severe interaction subnetwork (Contraindicated + Major = 309,286 edges) exhibits lower density but higher clinical significance. All severity subnetworks form a single connected component, indicating comprehensive coverage across the drug space.
+The Moderate subnetwork dominates (304,399 edges, 80.1\%), spanning 4,098 drugs. The severe interaction subnetwork (Contraindicated + Major = 40,175 edges, 10.6\%) involves 725 drugs for Contraindicated and 665 drugs for Major interactions. All severity subnetworks form single connected components, meaning drugs within each severity class are reachable from every other---there are no isolated ``islands'' of drugs at any severity level. This underscores the interconnected nature of drug interactions across the pharmacological space.
 
 \subsubsection*{Centrality Analysis}
 
 We computed multiple centrality measures to identify drugs with high-risk interaction profiles (Figure~\ref{fig:centrality_heatmap}):
 
-\textbf{Betweenness Centrality:} Drugs with high betweenness serve as ``bridges'' in the interaction network, mediating indirect effects between drug clusters. High-betweenness drugs include CYP450 inhibitors/inducers (Rifampin, Ketoconazole) that affect multiple drug metabolism pathways.
+\textbf{Betweenness Centrality:} Drugs with high betweenness serve as ``bridges'' in the interaction network, mediating indirect effects between drug clusters. High-betweenness drugs include local anesthetics (Procaine, Lidocaine) that interact across multiple drug classes, and biologics (Sotatercept, Abciximab) that bridge distinct therapeutic domains.
 
-\textbf{Eigenvector Centrality:} Drugs with high eigenvector centrality interact with other highly-connected drugs, amplifying polypharmacy risk. Cardiovascular agents (Warfarin, Digoxin, Amiodarone) dominate the top eigenvector centrality rankings.
+\textbf{Eigenvector Centrality:} Unlike degree centrality which counts connections, eigenvector centrality weights connections by the importance of neighboring nodes. A drug scores high if it interacts with other highly-connected drugs. In the DDI network, this identifies drugs that interact with multiple hub medications---adding such a drug to a polypharmacy regimen creates cascading interaction risks because it connects to the most interaction-prone drugs in the network. Antiarrhythmics (Quinidine) and cardiovascular agents (Propranolol, Verapamil, Isradipine) dominate the top eigenvector centrality rankings, reflecting their tendency to interact with other high-risk medications.
 
-\textbf{PageRank:} The PageRank algorithm identifies drugs that are interaction targets of other high-risk drugs. Anticoagulants and narrow therapeutic index drugs exhibit the highest PageRank scores, consistent with their clinical monitoring requirements.
+\textbf{PageRank:} Originally developed by Google to rank web pages, PageRank in the DDI network measures which drugs are most likely to be ``reached'' by random walks through the interaction graph. A drug has high PageRank if many other drugs interact with it, especially if those drugs themselves have many interactions. In clinical terms, high-PageRank drugs are frequent interaction targets---they are the medications most likely to be affected when new drugs are added to a regimen. Local anesthetics (Procaine, Lidocaine, Benzocaine) exhibit the highest PageRank scores, reflecting their extensive interaction profiles with multiple drug classes via sodium channel and protein binding mechanisms.
 
 % Centrality Heatmap
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\textwidth]{figures/centrality_heatmap.png}
-\caption{Multi-centrality profile heatmap for top 30 drugs (ranked by average centrality). Normalized values (0-1) enable comparison across degree, betweenness, eigenvector, and PageRank metrics. Warfarin, Aspirin, and Methotrexate consistently rank highest across all centrality measures, confirming their status as critical hub drugs requiring enhanced monitoring.}
+\includegraphics[width=0.45\textwidth]{figures/centrality_heatmap.png}
+\caption{Multi-centrality profile heatmap for top 20 drugs (ranked by average centrality). Normalized values (0-1) enable comparison across degree, betweenness, eigenvector, and PageRank metrics. Procaine, Lidocaine, and Quinidine consistently rank highest across centrality measures, confirming their status as critical hub drugs requiring enhanced monitoring in polypharmacy scenarios.}
 \label{fig:centrality_heatmap}
 \end{figure}
 
 \subsubsection*{Community Detection}
 
-Application of the Louvain community detection algorithm identified 12 distinct drug communities (modularity Q = 0.42). These communities correspond to pharmacological drug classes with dense intra-class interactions (Figures~\ref{fig:chord_severity} and~\ref{fig:centrality_network}):
+Application of the Louvain community detection algorithm identified 6 distinct drug communities (modularity Q = 0.23). The moderate modularity reflects the highly interconnected nature of drug interactions across pharmacological classes. The largest community (Community 1) contains 1,235 drugs spanning multiple therapeutic classes, followed by Community 2 with 858 mixed pharmacological agents, Community 3 with 766 cardiovascular and alimentary agents, Community 4 with 727 drugs forming a CNS-enriched cluster, and Community 5 with 708 drugs exhibiting CNS/cardiovascular overlap.
 
-\begin{itemize}
-\item \textbf{Community 1:} Cardiovascular agents (n=487 drugs, 89,234 intra-community DDIs)
-\item \textbf{Community 2:} CNS agents (n=412 drugs, 67,891 intra-community DDIs)
-\item \textbf{Community 3:} Anti-infectives (n=356 drugs, 54,123 intra-community DDIs)
-\item \textbf{Community 4:} Antineoplastics (n=298 drugs, 48,765 intra-community DDIs)
-\item \textbf{Community 5:} Immunosuppressants (n=156 drugs, 23,456 intra-community DDIs)
-\end{itemize}
+The lack of clean pharmacological class separation underscores that DDIs cross therapeutic boundaries, reinforcing the need for comprehensive interaction checking in polypharmacy scenarios. Inter-community edges represent cross-class interactions with potentially unexpected clinical consequences. The community structure is visualized in Figure~\ref{fig:louvain_network}, showing representative hub drugs from each Louvain community with distinct colors indicating community membership.
 
-Inter-community edges represent cross-class interactions with potentially unexpected clinical consequences, warranting heightened surveillance in polypharmacy scenarios. The inter-class interaction patterns are visualized in the chord diagram (Figure~\ref{fig:chord_severity}), where arc width indicates interaction volume between ATC drug classes and colors denote severity levels. The network topology visualization (Figure~\ref{fig:centrality_network}) further illustrates the hub-and-spoke architecture with high-centrality drugs at the core.
-
-% Chord Diagram
+% Louvain Network
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/chord_severity.png}
-\caption{Chord diagram visualizing DDI by severity across ATC drug classes. Arc width represents interaction volume; colors indicate severity: red (contraindicated), orange (major), yellow (moderate), green (minor).}
-\label{fig:chord_severity}
-\end{figure}
-
-% Centrality Network Visualization
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.95\textwidth]{figures/centrality_network.png}
-\caption{Network visualization of top 50 drugs by degree centrality. Left panel: node size proportional to degree centrality, color indicates betweenness centrality (yellow-red scale). Right panel: node size proportional to PageRank, color indicates eigenvector centrality (blue-green scale). Labels identify top 10 hub drugs. The dense core reflects the scale-free network topology with pharmaceutical hubs mediating cross-class interactions.}
-\label{fig:centrality_network}
+\includegraphics[width=0.85\textwidth]{figures/louvain_network.png}
+\caption{DDI network visualization with Louvain community detection. Node colors indicate community membership (6 communities, modularity Q = 0.23). Representative hub drugs from each major community are shown, with node size proportional to degree (number of interactions). Labels identify highest-degree drugs. The network structure reveals how drugs cluster into interaction neighborhoods that span therapeutic classes.}
+\label{fig:louvain_network}
 \end{figure}
 
 \section*{Data Availability}

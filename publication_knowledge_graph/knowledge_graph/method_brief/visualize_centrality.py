@@ -315,7 +315,7 @@ def plot_centrality_network(G, centralities, output_dir, top_n=50):
     print(f"Saved: centrality_network.png/pdf")
     plt.close()
 
-def plot_combined_centrality_heatmap(centralities, kg, output_dir, top_n=30):
+def plot_combined_centrality_heatmap(centralities, kg, output_dir, top_n=20):
     """Heatmap showing multiple centrality measures for top drugs"""
     import pandas as pd
     
@@ -354,18 +354,19 @@ def plot_combined_centrality_heatmap(centralities, kg, output_dir, top_n=30):
     data = np.array(data)
     data_norm = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0) + 1e-10)
     
-    fig, ax = plt.subplots(figsize=(10, 12))
+    # Compact figure size
+    fig, ax = plt.subplots(figsize=(5, 8))
     im = ax.imshow(data_norm, cmap='YlOrRd', aspect='auto')
     
     ax.set_xticks(range(4))
-    ax.set_xticklabels(['Degree', 'Betweenness', 'Eigenvector', 'PageRank'])
+    ax.set_xticklabels(['Degree', 'Betw.', 'Eigen.', 'PageRank'], fontsize=8)
     ax.set_yticks(range(len(labels)))
-    ax.set_yticklabels(labels)
+    ax.set_yticklabels(labels, fontsize=7)
     
-    plt.colorbar(im, ax=ax, label='Normalized Centrality')
-    ax.set_title(f'Top {top_n} Drugs: Multi-Centrality Profile')
-    ax.set_xlabel('Centrality Measure')
-    ax.set_ylabel('Drug')
+    plt.colorbar(im, ax=ax, label='Normalized Centrality', shrink=0.8)
+    ax.set_title(f'Top {top_n} Drugs: Multi-Centrality Profile', fontsize=10)
+    ax.set_xlabel('Centrality Measure', fontsize=9)
+    ax.set_ylabel('Drug', fontsize=9)
     
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'centrality_heatmap.png'), dpi=1200)

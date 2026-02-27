@@ -223,6 +223,21 @@ class SemanticSeverityRecalibrator:
         if pd.isna(description) or description.strip() == '':
             return {'score': 2.0, 'best_severity': 'moderate', 'similarities': {}}
         
+        # Check for critical clinical markers FIRST before semantic matching
+        # Bleeding/hemorrhage should always be at least Major severity
+        desc_lower = description.lower()
+        critical_major_markers = [
+            'bleeding', 'hemorrhag', 'anticoagulant activities',
+            'hyperkalemia', 'rhabdomyolysis', 'renal failure'
+        ]
+        if any(marker in desc_lower for marker in critical_major_markers):
+            return {
+                'score': 3.2,  # Major interaction score
+                'best_severity': 'major',
+                'similarities': {},
+                'method': 'critical_marker'
+            }
+        
         self._load_model()
         
         if self.model == "fallback":

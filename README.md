@@ -21,24 +21,50 @@ This system analyzes drug-drug interactions and provides:
 - **Polypharmacy Risk Index (PRI)**: Paper methodology for risk quantification
 - **Multi-Objective Recommender**: Ranks alternatives by risk reduction + centrality + phenotype avoidance
 - **Interaction Detection**: Identifies all pairwise DDIs from a medication list
-- **Severity Classification**: ML-based severity prediction (Contraindicated, Major, Moderate, Minor)
+- **Severity Classification**: Evidence-based severity (validated: 71.6% DDInter accuracy, κ=+0.107)
 - **Risk Assessment**: Overall polypharmacy risk scoring
 - **Alternative Recommendations**: ATC-based safer drug alternatives
 - **Clinical Reports**: Human-readable reports with optional BioMistral-7B LLM
 
 ## 📊 Paper Methodology
 
-### 1. Drug Risk Network Construction
+### 1. Severity Classification Pipeline
+
+**Baseline → Optimized → Validated → Final**
+
+| Stage | Method | DDInter Accuracy | Cohen's κ |
+|-------|--------|-----------------|----------|
+| Baseline | Zero-Shot BART-MNLI | 12.4% | -0.000 |
+| Optimized | Evidence-Based Classifier | **71.6%** | **+0.107** |
+
+**Final Model**: Evidence-Based Classifier validated against:
+- **DDInter** (n=6,381 pairs): 71.6% exact, 98.8% adjacent accuracy, κ=+0.107
+
+### 2. Evidence-Based Classification Rules
+- **Contraindicated**: FDA Black Box Warnings, QT prolongation
+- **Major**: CHEST Guidelines, bleeding risk, organ toxicity
+- **Moderate**: CYP interactions, concentration changes
+- **Minor**: Sedation, GI effects
+
+### 3. Severity Distribution (Evidence-Based)
+| Level | Count | Percentage |
+|-------|-------|------------|
+| Contraindicated | 28,614 | 3.8% |
+| Major | 179,568 | 23.6% |
+| Moderate | 550,145 | 72.4% |
+| Minor | 1,447 | 0.2% |
+
+### 4. Drug Risk Network Construction
 - Nodes = Drugs, Edges = Interactions weighted by severity
 - Severity weights: Contraindicated=10, Major=7, Moderate=4, Minor=1
 - Computes degree centrality, weighted degree, and betweenness centrality
 
-### 2. Polypharmacy Risk Index (PRI)
+### 5. Polypharmacy Risk Index (PRI)
 ```
 PRI = 0.25×(Degree Centrality) + 0.30×(Weighted Degree) + 0.20×(Betweenness) + 0.25×(Severity Profile)
 ```
 
-### 3. Multi-Objective Recommender Algorithm
+### 6. Multi-Objective Recommender Algorithm
 Ranks alternatives using four weighted objectives:
 - **Risk Reduction (35%)**: PRI delta between original and alternative drug
 - **Centrality Reduction (20%)**: Network centrality improvement

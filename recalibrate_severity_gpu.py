@@ -99,31 +99,42 @@ SEVERITY_PROTOTYPES = {
 }
 
 
+# Drug class lists curated from NCBI/NIH StatPearls (official sources)
+# See data/official_drug_class_references.md for citations
 HIGH_RISK_DRUG_CLASSES = {
+    # Source: NCBI StatPearls NBK560651 (PMID: 32809486)
     'anticoagulants': [
-        'warfarin', 'heparin', 'enoxaparin', 'rivaroxaban', 'apixaban',
-        'dabigatran', 'edoxaban', 'fondaparinux', 'argatroban', 'bivalirudin'
+        'warfarin', 'heparin', 'enoxaparin', 'dalteparin', 'tinzaparin', 'nadroparin',
+        'rivaroxaban', 'apixaban', 'dabigatran', 'edoxaban', 'betrixaban',
+        'fondaparinux', 'argatroban', 'bivalirudin'
     ],
     'antiplatelets': [
         'aspirin', 'clopidogrel', 'ticagrelor', 'prasugrel', 'dipyridamole',
-        'ticlopidine', 'cangrelor', 'vorapaxar'
+        'ticlopidine', 'cangrelor', 'abciximab', 'eptifibatide', 'tirofiban', 'cilostazol'
     ],
+    # Source: NCBI StatPearls NBK534864 (PMID: 30521285)
     'qt_prolonging': [
         'amiodarone', 'sotalol', 'dofetilide', 'dronedarone', 'quinidine',
-        'procainamide', 'ibutilide', 'azithromycin', 'erythromycin',
-        'haloperidol', 'methadone', 'ondansetron'
+        'procainamide', 'flecainide', 'ibutilide',
+        'haloperidol', 'ziprasidone', 'quetiapine', 'thioridazine', 'droperidol',
+        'azithromycin', 'erythromycin', 'clarithromycin', 'moxifloxacin', 'levofloxacin',
+        'amitriptyline', 'imipramine', 'citalopram', 'escitalopram',
+        'methadone', 'ondansetron', 'sumatriptan'
     ],
+    # Source: NCBI StatPearls NBK539848 (PMID: 30844151)
     'maois': [
-        'phenelzine', 'tranylcypromine', 'isocarboxazid', 'selegiline',
-        'rasagiline', 'safinamide', 'moclobemide'
+        'phenelzine', 'tranylcypromine', 'isocarboxazid',
+        'selegiline', 'rasagiline', 'safinamide'
     ],
     'strong_cyp3a4_inhibitors': [
         'ketoconazole', 'itraconazole', 'clarithromycin', 'ritonavir',
         'nelfinavir', 'indinavir', 'nefazodone', 'cobicistat'
     ],
+    # Serotonergics that interact with MAOIs (from NBK539848)
     'serotonergics': [
         'fluoxetine', 'sertraline', 'paroxetine', 'citalopram', 'escitalopram',
-        'venlafaxine', 'duloxetine', 'tramadol', 'fentanyl', 'triptans'
+        'venlafaxine', 'duloxetine', 'tramadol', 'meperidine', 'dextromethorphan',
+        'fentanyl', 'methadone', 'sumatriptan', 'rizatriptan', 'zolmitriptan'
     ]
 }
 
@@ -384,10 +395,10 @@ class GPUSeverityRecalibrator:
         recal_dist = df_recal['severity_recalibrated'].value_counts(normalize=True)
         
         target_dist = {
-            'Contraindicated interaction': 0.05,
-            'Major interaction': 0.25,
-            'Moderate interaction': 0.60,
-            'Minor interaction': 0.10
+            'Contraindicated interaction': 0.04,
+            'Major interaction': 0.18,
+            'Moderate interaction': 0.74,
+            'Minor interaction': 0.04
         }
         
         print(f"\n{'Severity':<30} {'Original':>10} {'Recalibrated':>12} {'Target':>10}")

@@ -318,13 +318,25 @@ class FactBasedKGBuilder:
                     except:
                         pass
         
+        # Determine which severity column to use (prefer calibrated > recalibrated > label)
+        severity_col = 'severity_label'
+        if 'severity_calibrated' in df.columns:
+            severity_col = 'severity_calibrated'
+            logger.info(f"  Using recalibrated severity column: {severity_col}")
+        elif 'severity_recalibrated' in df.columns:
+            severity_col = 'severity_recalibrated'
+            logger.info(f"  Using recalibrated severity column: {severity_col}")
+        
         # Store DDI edges from CSV (these are ground truth)
         for _, row in df.iterrows():
+            # Get severity - use recalibrated if available
+            severity = row.get(severity_col, row['severity_label'])
+            
             self.ddi_edges.append(DDIEdge(
                 drug1_id=row['drugbank_id_1'],
                 drug2_id=row['drugbank_id_2'],
                 description=row['interaction_description'],
-                severity=row['severity_label'],
+                severity=severity,
                 provenance=Provenance(
                     source="CSV",
                     match_type="drugbank_id",
@@ -1275,7 +1287,8 @@ class FactBasedKGBuilder:
 def main():
     """Build fact-based DDI Knowledge Graph."""
     
-    csv_path = "data/ddi_cardio_or_antithrombotic_labeled (1).csv"
+    # Use recalibrated severity data (with empirical keyword-based classification)
+    csv_path = "data/ddi_recalibrated.csv"
     xml_path = "data/full database.xml"
     output_dir = "knowledge_graph_fact_based"
     

@@ -614,6 +614,258 @@ SNP Adverse Reactions & 113 \\
 \end{table}
 
 %====================================================================
+\newpage
+\section{Network Analysis Methods}
+\label{sec:network_analysis}
+%====================================================================
+
+This section provides detailed methodology for the DDI network analysis reported in the main text.
+
+\subsection{Graph Construction}
+
+The DDI network was constructed as an undirected graph $G = (V, E)$ where:
+\begin{itemize}
+    \item $V$ = set of 4,314 drug nodes
+    \item $E$ = set of 379,917 undirected edges (unique drug pairs with documented interactions)
+\end{itemize}
+
+Note that the raw DDI data contains 759,774 interaction records (counting each pair bidirectionally as A$\rightarrow$B and B$\rightarrow$A). The undirected graph representation uses 379,917 edges (each pair counted once), which is appropriate since drug interactions are inherently symmetric.
+
+\subsection{Global Network Metrics}
+
+\begin{table}[h]
+\centering
+\caption{DDI Network Global Metrics}
+\label{tab:global_metrics}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Metric} & \textbf{Definition} & \textbf{Value} \\
+\midrule
+Nodes ($|V|$) & Unique drugs & 4,314 \\
+Edges ($|E|$) & Unique DDI pairs & 379,917 \\
+Density & $\frac{2|E|}{|V|(|V|-1)}$ & 0.041 \\
+Average Degree & $\frac{2|E|}{|V|}$ & 176.1 \\
+Median Degree & 50th percentile of degree distribution & 74 \\
+Std. Deviation & Standard deviation of degree & 321.9 \\
+Clustering Coefficient & Global transitivity & 0.70 \\
+Network Diameter & Maximum shortest path & 5 \\
+Average Path Length & Mean shortest path between all pairs & 2.19 \\
+Number of Components & Connected subgraphs & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item \textbf{Density (0.041):} Approximately 4.1\% of all possible drug pairs have documented interactions. Given 4,314 drugs, there are $\binom{4314}{2} = 9{,}302{,}841$ possible pairs; 379,917 pairs have known DDIs.
+    \item \textbf{Clustering Coefficient (0.70):} High transitivity indicates that if drug A interacts with both B and C, then B and C are likely to interact---reflecting shared pharmacological mechanisms.
+    \item \textbf{Average Path Length (2.19):} Any two drugs are connected through approximately 1--2 intermediary drugs on average, indicating small-world properties.
+\end{itemize}
+
+\subsection{Degree Distribution and Scale-Free Properties}
+
+The degree distribution follows a power-law pattern characteristic of scale-free networks:
+
+\begin{equation}
+P(k) \propto k^{-\gamma}
+\end{equation}
+
+\begin{table}[h]
+\centering
+\caption{Power-Law Fit Parameters}
+\label{tab:powerlaw}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Exponent ($\gamma$) & 0.74 \\
+Coefficient of Determination ($R^2$) & 0.71 \\
+Minimum Degree ($k_{min}$) & 1 \\
+Maximum Degree ($k_{max}$) & 2,391 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The relatively low $\gamma$ indicates a ``fat tail'' distribution with many hub drugs having disproportionately high interaction counts.
+
+\subsection{Louvain Community Detection}
+
+Community structure was identified using the Louvain algorithm\footnote{Blondel VD, et al. Fast unfolding of communities in large networks. \textit{J Stat Mech}. 2008;P10008.}, which optimizes modularity $Q$:
+
+\begin{equation}
+Q = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - \frac{k_i k_j}{2m} \right] \delta(c_i, c_j)
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $A_{ij}$ = adjacency matrix element (1 if edge exists, 0 otherwise)
+    \item $k_i, k_j$ = degrees of nodes $i$ and $j$
+    \item $m$ = total number of edges
+    \item $c_i, c_j$ = community assignments
+    \item $\delta(c_i, c_j)$ = 1 if $c_i = c_j$, 0 otherwise
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Louvain Community Detection Results}
+\label{tab:louvain}
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{Community} & \textbf{Size} & \textbf{\% Total} & \textbf{Dominant Drug Classes} \\
+\midrule
+1 & 1,235 & 28.6\% & Mixed therapeutic classes \\
+2 & 858 & 19.9\% & Mixed pharmacological agents \\
+3 & 766 & 17.8\% & Cardiovascular, alimentary agents \\
+4 & 727 & 16.9\% & CNS-enriched cluster \\
+5 & 708 & 16.4\% & CNS/cardiovascular overlap \\
+6 & 20 & 0.5\% & Minor cluster \\
+\midrule
+\textbf{Total} & 4,314 & 100\% & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Modularity:} $Q = 0.23$
+
+The moderate modularity reflects the highly interconnected nature of drug interactions, where pharmacological effects cross therapeutic class boundaries. Unlike protein-protein interaction networks that often show clear functional modules, DDI networks exhibit more diffuse community structure due to:
+\begin{enumerate}
+    \item Shared metabolic pathways (CYP450 enzymes)
+    \item Common protein targets across drug classes
+    \item Pharmacodynamic interactions independent of chemical structure
+\end{enumerate}
+
+\subsection{Centrality Measures}
+
+Four centrality measures were computed to characterize drug importance in the DDI network:
+
+\subsubsection{Degree Centrality}
+
+\begin{equation}
+C_D(v) = \frac{\text{deg}(v)}{|V| - 1}
+\end{equation}
+
+Measures the fraction of drugs that interact with drug $v$. High degree centrality indicates a drug with many documented interactions.
+
+\subsubsection{Betweenness Centrality}
+
+\begin{equation}
+C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}}
+\end{equation}
+
+where $\sigma_{st}$ is the total number of shortest paths from $s$ to $t$, and $\sigma_{st}(v)$ is the number passing through $v$. High betweenness indicates drugs that ``bridge'' different interaction clusters.
+
+\subsubsection{Eigenvector Centrality}
+
+\begin{equation}
+C_E(v) = \frac{1}{\lambda} \sum_{u \in N(v)} C_E(u)
+\end{equation}
+
+where $\lambda$ is the largest eigenvalue and $N(v)$ is the neighborhood of $v$. A drug has high eigenvector centrality if it interacts with other highly-connected drugs.
+
+\subsubsection{PageRank}
+
+\begin{equation}
+PR(v) = \frac{1-d}{|V|} + d \sum_{u \in N(v)} \frac{PR(u)}{\text{deg}(u)}
+\end{equation}
+
+with damping factor $d = 0.85$. PageRank identifies drugs most likely to be ``reached'' via random walks through the interaction network.
+
+\begin{table}[h]
+\centering
+\caption{Top 10 Drugs by Composite Centrality Score}
+\label{tab:centrality}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Drug} & \textbf{Degree} & \textbf{Betweenness} & \textbf{Eigenvector} & \textbf{PageRank} \\
+\midrule
+Quinidine & 2,391 & 0.0089 & 0.0319 & 0.00142 \\
+Procaine & 2,360 & 0.0142 & 0.0315 & 0.00150 \\
+Lidocaine & 2,104 & 0.0098 & 0.0287 & 0.00138 \\
+Verapamil & 2,104 & 0.0052 & 0.0291 & 0.00127 \\
+Propranolol & 2,092 & 0.0048 & 0.0290 & 0.00125 \\
+Warfarin & 2,073 & 0.0051 & 0.0286 & 0.00124 \\
+Isradipine & 2,071 & 0.0042 & 0.0288 & 0.00122 \\
+Pindolol & 2,024 & 0.0044 & 0.0282 & 0.00120 \\
+Indomethacin & 2,023 & 0.0047 & 0.0280 & 0.00121 \\
+Nicardipine & 2,022 & 0.0041 & 0.0281 & 0.00119 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Severity-Stratified Subnetwork Analysis}
+
+The DDI network was stratified by recalibrated severity level:
+
+\begin{table}[h]
+\centering
+\caption{Severity Subnetwork Properties}
+\label{tab:severity_subnetworks}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Severity} & \textbf{Edges} & \textbf{\%} & \textbf{Density} & \textbf{Avg Deg} & \textbf{Components} \\
+\midrule
+Moderate & 304,399 & 80.1\% & 0.036 & 148.6 & 1 \\
+Minor & 35,343 & 9.3\% & 0.016 & 33.8 & 1 \\
+Contraindicated & 22,153 & 5.8\% & 0.084 & 61.1 & 1 \\
+Major & 18,022 & 4.7\% & 0.082 & 54.2 & 1 \\
+\midrule
+Severe (C+M) & 40,175 & 10.6\% & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All severity subnetworks form single connected components, indicating no isolated drug ``islands'' at any severity level.
+
+\subsection{Small-World Properties}
+
+The DDI network exhibits small-world characteristics:
+
+\begin{table}[h]
+\centering
+\caption{Small-World Analysis}
+\label{tab:smallworld}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Property} & \textbf{DDI Network} & \textbf{Random Graph} & \textbf{Ratio} \\
+\midrule
+Clustering Coefficient ($C$) & 0.70 & 0.041 & 17.1$\times$ \\
+Average Path Length ($L$) & 2.19 & 1.76 & 1.25$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Small-world networks satisfy: $C \gg C_{random}$ and $L \approx L_{random}$. The DDI network shows clustering 17$\times$ higher than random while maintaining comparable path lengths, confirming small-world topology.
+
+\subsection{Implementation Details}
+
+Network analysis was performed using Python 3.10 with NetworkX 3.1:
+
+\begin{verbatim}
+import networkx as nx
+from community import community_louvain
+
+# Build undirected graph
+G = nx.Graph()
+for drug1, drug2, severity in ddi_edges:
+    G.add_edge(drug1, drug2, severity=severity)
+
+# Global metrics
+density = nx.density(G)
+clustering = nx.transitivity(G)
+avg_path = nx.average_shortest_path_length(G)
+
+# Centrality measures  
+degree_cent = nx.degree_centrality(G)
+betweenness = nx.betweenness_centrality(G, k=500)
+eigenvector = nx.eigenvector_centrality(G, max_iter=1000)
+pagerank = nx.pagerank(G, alpha=0.85)
+
+# Louvain community detection
+partition = community_louvain.best_partition(G)
+modularity = community_louvain.modularity(partition, G)
+\end{verbatim}
+
+%====================================================================
 \section{Reproducibility}
 %====================================================================
 
