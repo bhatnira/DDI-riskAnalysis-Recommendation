@@ -123,7 +123,7 @@ HTML_PAGE = """<!DOCTYPE html>
         .header h1{font-size:24px;margin-bottom:6px}
         .header p{font-size:13px;opacity:0.9}
         
-        .main-container{max-width:1600px;margin:0 auto;padding:20px;display:grid;grid-template-columns:350px 1fr;gap:20px}
+        .main-container{max-width:1900px;margin:0 auto;padding:20px;display:grid;grid-template-columns:320px 1fr 400px;gap:20px}
         
         .panel{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden}
         .panel-header{background:linear-gradient(135deg,#f8fafc,#e2e8f0);padding:14px 18px;border-bottom:1px solid #e2e8f0;font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center}
@@ -251,7 +251,8 @@ HTML_PAGE = """<!DOCTYPE html>
         
         /* Print styles */
         @media print{.sidebar,.tabs,.chat-input,.btn,.header{display:none!important}.report-content{max-height:none!important}}
-        @media(max-width:1024px){.main-container{grid-template-columns:1fr}}
+        @media(max-width:1400px){.main-container{grid-template-columns:1fr 1fr}}
+        @media(max-width:900px){.main-container{grid-template-columns:1fr}}
     </style>
 </head>
 <body>
@@ -304,54 +305,46 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
     </div>
     
-    <!-- Main Content Area -->
-    <div class="content-area">
-        <div class="panel" style="flex:1;display:flex;flex-direction:column">
-            <div class="panel-header">
-                <div class="tabs">
-                    <button class="tab active" onclick="switchTab('report')">📋 Comprehensive Report</button>
-                    <button class="tab" onclick="switchTab('chat')">💬 Chat Assistant</button>
-                </div>
-                <button class="btn btn-secondary" style="padding:6px 12px;font-size:11px" onclick="showModelModal()" id="model-btn">🤖 Meditron 7B</button>
+    <!-- Middle Panel - Comprehensive Report -->
+    <div class="panel" style="display:flex;flex-direction:column">
+        <div class="panel-header">
+            <span>📋 Comprehensive Report</span>
+            <button class="btn btn-secondary" style="padding:6px 12px;font-size:11px" onclick="showModelModal()" id="model-btn">🤖 Meditron 7B</button>
+        </div>
+        <div class="report-content" id="report-content" style="flex:1;overflow-y:auto;max-height:calc(100vh - 180px)">
+            <div class="report-placeholder">
+                <h3>📋 Comprehensive Report</h3>
+                <p>Enter a drug regimen and click "Generate Comprehensive Report"</p>
+                <p style="margin-top:12px;font-size:12px">The report will include:</p>
+                <ul style="text-align:left;display:inline-block;margin-top:8px;font-size:13px">
+                    <li>Drug-drug interactions with severity and mechanisms</li>
+                    <li>Side effect overlap analysis</li>
+                    <li>Protein target conflicts</li>
+                    <li>Pathway analysis</li>
+                    <li>Citations to DrugBank, SIDER, and other sources</li>
+                    <li>AI-synthesized clinical recommendations</li>
+                </ul>
             </div>
-            
-            <!-- Report Tab -->
-            <div class="report-container active" id="report-tab">
-                <div class="report-content" id="report-content">
-                    <div class="report-placeholder">
-                        <h3>📋 Comprehensive Report</h3>
-                        <p>Enter a drug regimen and click "Generate Comprehensive Report"</p>
-                        <p style="margin-top:12px;font-size:12px">The report will include:</p>
-                        <ul style="text-align:left;display:inline-block;margin-top:8px;font-size:13px">
-                            <li>Drug-drug interactions with severity and mechanisms</li>
-                            <li>Side effect overlap analysis</li>
-                            <li>Protein target conflicts</li>
-                            <li>Pathway analysis</li>
-                            <li>Citations to DrugBank, SIDER, and other sources</li>
-                            <li>AI-synthesized clinical recommendations</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Chat Tab -->
-            <div class="chat-container" id="chat-tab">
-                <div class="chat-messages" id="chat-messages">
-                    <div class="welcome">
-                        <h3>💬 DDI Chat Assistant</h3>
-                        <p>Ask questions about drug interactions, mechanisms, and safety</p>
-                        <div class="suggestions">
-                            <div class="suggestion" onclick="askQuestion('What are the risks of combining warfarin with NSAIDs?')">Warfarin + NSAIDs</div>
-                            <div class="suggestion" onclick="askQuestion('Explain serotonin syndrome risk factors')">Serotonin Syndrome</div>
-                            <div class="suggestion" onclick="askQuestion('What are safer alternatives to aspirin for antiplatelet therapy?')">Aspirin Alternatives</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="chat-input">
-                    <input type="text" id="chat-input" placeholder="Ask about drug interactions..." onkeypress="if(event.key==='Enter')sendChat()">
-                    <button class="btn btn-primary" onclick="sendChat()">Send</button>
+        </div>
+    </div>
+    
+    <!-- Right Panel - Chat Assistant -->
+    <div class="panel" style="display:flex;flex-direction:column">
+        <div class="panel-header">💬 Chat Assistant</div>
+        <div class="chat-messages" id="chat-messages" style="flex:1;overflow-y:auto;max-height:calc(100vh - 240px);min-height:300px">
+            <div class="welcome">
+                <h3>💬 DDI Chat Assistant</h3>
+                <p>Ask questions about drug interactions, mechanisms, and safety</p>
+                <div class="suggestions">
+                    <div class="suggestion" onclick="askQuestion('What are the risks of combining warfarin with NSAIDs?')">Warfarin + NSAIDs</div>
+                    <div class="suggestion" onclick="askQuestion('Explain serotonin syndrome risk factors')">Serotonin Syndrome</div>
+                    <div class="suggestion" onclick="askQuestion('What are safer alternatives to aspirin for antiplatelet therapy?')">Aspirin Alternatives</div>
                 </div>
             </div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chat-input" placeholder="Ask about drug interactions..." onkeypress="if(event.key==='Enter')sendChat()">
+            <button class="btn btn-primary" onclick="sendChat()">Send</button>
         </div>
     </div>
 </div>
@@ -492,10 +485,6 @@ function displayQuickResults(d) {
 function generateReport() {
     const drugs = document.getElementById('drug-input').value.trim();
     if(!drugs) { alert('Please enter drug names first'); return; }
-    
-    // Switch to report tab
-    switchTab('report');
-    document.querySelector('.tab').click();
     
     const content = document.getElementById('report-content');
     content.innerHTML = `

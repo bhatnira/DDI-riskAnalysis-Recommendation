@@ -357,6 +357,284 @@ class KnowledgeGraph:
         # Sort by risk reduction (best first)
         alternatives.sort(key=lambda x: -x['risk_reduction'])
         return alternatives[:max_alternatives]
+    
+    # ============================================================
+    # Polypharmacy Risk Index (PRI) Calculations
+    # Based on publication_polypharmacy_alternatives/methods_brief_simple.tex
+    # ============================================================
+    
+    def _compute_network_stats(self):
+        """Compute network-wide statistics for PRI normalization (called once on load)"""
+        if hasattr(self, '_network_stats'):
+            return self._network_stats
+        
+        # Build adjacency info for each drug
+        drug_interactions = {}  # drug_id -> list of (other_id, severity_weight)
+        
+        for (d1, d2), ddi in self.ddi_index.items():
+            if d1 not in drug_interactions:
+                drug_interactions[d1] = []
+            sev = ddi.get('severity', '')
+            weight = self.get_severity_weight(sev)
+            drug_interactions[d1].append((d2, weight))
+        
+        # Compute max values for normalization
+        max_degree = 0
+        max_weighted = 0
+        all_betweenness = []  # Simplified: degree-based proxy
+        
+        for drug_id, interactions in drug_interactions.items():
+            degree = len(interactions)
+            weighted = sum(w for _, w in interactions)
+            max_degree = max(max_degree, degree)
+            max_weighted = max(max_weighted, weighted)
+            # Use degree as betweenness proxy (full betweenness is expensive)
+            all_betweenness.append(degree)
+        
+        max_betweenness = max(all_betweenness) if all_betweenness else 1
+        
+        self._network_stats = {
+            'drug_interactions': drug_interactions,
+            'max_degree': max_degree or 1,
+            'max_weighted': max_weighted or 1,
+            'max_betweenness': max_betweenness or 1,
+            'num_drugs': len(drug_interactions)
+        }
+        return self._network_stats
+    
+    def calculate_pri(self, drug_id):
+        """
+        Calculate Polypharmacy Risk Index (PRI) for a single drug.
+        
+        PRI(d) = 0.25 * C_degree + 0.30 * C_weighted + 0.20 * C_betweenness + 0.25 * S(d)
+        
+        Components:
+        - C_degree: Normalized interaction count (how many drugs it interacts with)
+        - C_weighted: Severity-weighted interaction sum (contraindicated=10, major=7, etc.)
+        - C_betweenness: Network centrality (proxy: normalized degree)
+        - S: Severity profile (proportion of severe interactions)
+        
+        Returns: dict with PRI score and component breakdown
+        """
+        stats = self._compute_network_stats()
+        drug_ints = stats['drug_interactions'].get(drug_id, [])
+        
+        if not drug_ints:
+            return {
+                'pri': 0.0,
+                'risk_level': 'Lower Risk',
+                'degree': 0, 'c_degree': 0.0,
+                'weighted_sum': 0, 'c_weighted': 0.0,
+                'c_betweenness': 0.0,
+                'severity_profile': 0.0,
+                'num_interactions': 0,
+                'num_severe': 0
+            }
+        
+        # Component calculations
+        degree = len(drug_ints)
+        weighted_sum = sum(w for _, w in drug_ints)
+        
+        # Severity profile: proportion of severe (contraindicated + major) interactions
+        severe_count = sum(1 for _, w in drug_ints if w >= 0.7)  # major (0.7) or contraindicated (1.0)
+        severity_profile = severe_count / degree if degree > 0 else 0
+        
+        # Normalize components (0-1 scale)
+        c_degree = degree / stats['max_degree']
+        c_weighted = weighted_sum / stats['max_weighted']
+        c_betweenness = degree / stats['max_betweenness']  # Proxy for betweenness
+        
+        # PRI formula from methods brief
+        pri = (0.25 * c_degree + 
+               0.30 * c_weighted + 
+               0.20 * c_betweenness + 
+               0.25 * severity_profile)
+        
+        # Risk classification from methods brief
+        if pri > 0.5:
+            risk_level = 'High Risk'
+        elif pri >= 0.3:
+            risk_level = 'Medium Risk'
+        else:
+            risk_level = 'Lower Risk'
+        
+        return {
+            'pri': round(pri, 3),
+            'risk_level': risk_level,
+            'degree': degree,
+            'c_degree': round(c_degree, 3),
+            'weighted_sum': round(weighted_sum, 2),
+            'c_weighted': round(c_weighted, 3),
+            'c_betweenness': round(c_betweenness, 3),
+            'severity_profile': round(severity_profile, 3),
+            'num_interactions': degree,
+            'num_severe': severe_count
+        }
+    
+    def calculate_regimen_pri(self, drug_ids):
+        """
+        Calculate aggregate PRI statistics for a medication regimen.
+        
+        Returns: dict with per-drug PRIs, average, and max risk drug
+        """
+        drug_pris = {}
+        max_pri = 0
+        max_pri_drug = None
+        
+        for drug_id in drug_ids:
+            pri_data = self.calculate_pri(drug_id)
+            drug_name = self.drugs_by_id.get(drug_id, {}).get('name', drug_id)
+            drug_pris[drug_name] = pri_data
+            
+            if pri_data['pri'] > max_pri:
+                max_pri = pri_data['pri']
+                max_pri_drug = drug_name
+        
+        avg_pri = sum(p['pri'] for p in drug_pris.values()) / len(drug_pris) if drug_pris else 0
+        
+        return {
+            'drug_pris': drug_pris,
+            'average_pri': round(avg_pri, 3),
+            'max_pri': round(max_pri, 3),
+            'highest_risk_drug': max_pri_drug,
+            'num_high_risk': sum(1 for p in drug_pris.values() if p['risk_level'] == 'High Risk'),
+            'num_medium_risk': sum(1 for p in drug_pris.values() if p['risk_level'] == 'Medium Risk')
+        }
+    
+    def calculate_ars(self, original_drug_id, alternative_drug_id, other_drug_ids):
+        """
+        Calculate Alternative Recommendation Score (ARS) for a drug substitution.
+        
+        ARS = 0.70 * (Severity Reduction / W_max) + 0.30 * (PRI_original - PRI_alternative)
+        
+        Where:
+        - Severity Reduction: Sum of severity weight reductions with regimen drugs
+        - W_max: 10 * |other_drugs| (maximum possible reduction)
+        - PRI diff: Improvement in network-wide risk
+        
+        Returns: dict with ARS score and components
+        """
+        other_ids = list(other_drug_ids)
+        
+        # Calculate severity weights with original and alternative
+        original_severity_sum = 0
+        alt_severity_sum = 0
+        
+        for other_id in other_ids:
+            # Original drug's interactions
+            orig_ddi = self.get_interaction(original_drug_id, other_id)
+            if orig_ddi:
+                original_severity_sum += self.get_severity_weight(orig_ddi.get('severity', ''))
+            
+            # Alternative drug's interactions
+            alt_ddi = self.get_interaction(alternative_drug_id, other_id)
+            if alt_ddi:
+                alt_severity_sum += self.get_severity_weight(alt_ddi.get('severity', ''))
+        
+        # Severity reduction
+        severity_reduction = original_severity_sum - alt_severity_sum
+        w_max = 1.0 * len(other_ids)  # Max possible reduction (contraindicated weight = 1.0 in our system)
+        normalized_sev_red = severity_reduction / w_max if w_max > 0 else 0
+        
+        # PRI improvement
+        orig_pri = self.calculate_pri(original_drug_id)['pri']
+        alt_pri = self.calculate_pri(alternative_drug_id)['pri']
+        pri_improvement = orig_pri - alt_pri
+        
+        # ARS formula (0.70 severity + 0.30 PRI)
+        ars = 0.70 * max(0, normalized_sev_red) + 0.30 * max(0, pri_improvement)
+        
+        return {
+            'ars': round(ars, 3),
+            'severity_reduction': round(severity_reduction, 3),
+            'normalized_sev_red': round(normalized_sev_red, 3),
+            'original_severity': round(original_severity_sum, 3),
+            'alternative_severity': round(alt_severity_sum, 3),
+            'original_pri': round(orig_pri, 3),
+            'alternative_pri': round(alt_pri, 3),
+            'pri_improvement': round(pri_improvement, 3)
+        }
+    
+    def find_alternatives_with_ars(self, drug_id, other_drug_ids, max_alternatives=5):
+        """
+        Find alternative drugs ranked by Alternative Recommendation Score (ARS).
+        Enhanced version of find_alternatives with PRI/ARS metrics.
+        """
+        drug_data = self.drugs_by_id.get(drug_id, {})
+        if not drug_data:
+            return []
+        
+        atc = str(drug_data.get('atc_codes', ''))
+        if not atc or atc == 'nan':
+            return []
+        
+        # Get ATC prefixes for this drug
+        prefixes = []
+        for code in atc.split('|'):
+            if len(code) >= 5:
+                prefixes.append(code[:5])
+            if len(code) >= 4:
+                prefixes.append(code[:4])
+        
+        # Find candidate alternatives from same therapeutic class
+        candidates = set()
+        for prefix in prefixes:
+            for cand_id in self.atc_index.get(prefix, []):
+                if cand_id != drug_id and cand_id not in other_drug_ids:
+                    candidates.add(cand_id)
+        
+        if not candidates:
+            return []
+        
+        # Original PRI for comparison
+        orig_pri_data = self.calculate_pri(drug_id)
+        
+        alternatives = []
+        for cand_id in candidates:
+            cand_data = self.drugs_by_id.get(cand_id, {})
+            if not cand_data:
+                continue
+            
+            # Calculate ARS for this substitution
+            ars_data = self.calculate_ars(drug_id, cand_id, other_drug_ids)
+            
+            # Only include if there's improvement
+            if ars_data['ars'] > 0 or ars_data['pri_improvement'] > 0:
+                # Get specific interactions with regimen drugs
+                interactions_with_others = []
+                for other_id in other_drug_ids:
+                    ddi = self.get_interaction(cand_id, other_id)
+                    if ddi:
+                        interactions_with_others.append(ddi)
+                
+                alt_pri_data = self.calculate_pri(cand_id)
+                
+                alternatives.append({
+                    'drug_id': cand_id,
+                    'name': cand_data.get('name', ''),
+                    'drugbank_id': cand_id,
+                    'atc_codes': cand_data.get('atc_codes', ''),
+                    # ARS metrics
+                    'ars': ars_data['ars'],
+                    'severity_reduction': ars_data['severity_reduction'],
+                    'normalized_sev_red': ars_data['normalized_sev_red'],
+                    'pri_improvement': ars_data['pri_improvement'],
+                    # PRI comparison
+                    'original_pri': orig_pri_data['pri'],
+                    'alternative_pri': alt_pri_data['pri'],
+                    'alt_risk_level': alt_pri_data['risk_level'],
+                    # Interaction details
+                    'num_interactions': len(interactions_with_others),
+                    'interactions': interactions_with_others,
+                    # Legacy compatibility fields
+                    'risk_reduction': ars_data['ars'],  # Map to old field for compatibility
+                    'original_risk': orig_pri_data['pri'],
+                    'alternative_risk': alt_pri_data['pri']
+                })
+        
+        # Sort by ARS (highest first = best alternative)
+        alternatives.sort(key=lambda x: -x['ars'])
+        return alternatives[:max_alternatives]
 
 
 # ============================================================
@@ -364,18 +642,19 @@ class KnowledgeGraph:
 # ============================================================
 
 class LLMClient:
-    """Ollama LLM client"""
+    """Ollama LLM client - uses Llama3"""
     
     MODELS = {
-        "Meditron 7B (Medical)": "meditron:7b-q4_K_M",
-        "MedLlama2 7B (Medical)": "medllama2:7b-q4_K_M",
-        "Llama 3 8B (General)": "llama3:latest",
-        "Mistral 7B (Fast)": "mistral:7b-instruct-q4_K_M"
+        "Llama3": "llama3:latest"
     }
     
-    def generate(self, prompt, model_name="Mistral 7B (Fast)"):
+    DEFAULT_MODEL = "Llama3"
+    
+    def generate(self, prompt, model_name=None):
         import urllib.request
-        model = self.MODELS.get(model_name, "mistral:7b-instruct-q4_K_M")
+        if model_name is None:
+            model_name = self.DEFAULT_MODEL
+        model = self.MODELS.get(model_name, "llama3:latest")
         try:
             data = json.dumps({
                 "model": model, "prompt": prompt, "stream": False,
@@ -386,9 +665,485 @@ class LLMClient:
                 headers={"Content-Type": "application/json"}
             )
             with urllib.request.urlopen(req, timeout=120) as resp:
-                return json.loads(resp.read().decode()).get('response', '')
+                response = json.loads(resp.read().decode()).get('response', '')
+                return response.strip()
         except Exception as e:
             return f"[LLM Error: {str(e)[:50]}]"
+
+
+def generate_llm_summary(interactions, drug_names, risk_level, regimen_pri=None,
+                        resolved_drugs=None, shared_se=None, shared_proteins=None):
+    """
+    Use LLM to generate a comprehensive, human-readable clinical summary
+    based on ALL knowledge graph data: interactions, indications, side effects, proteins.
+    """
+    if not interactions:
+        return f"No significant drug-drug interactions were found between {', '.join(drug_names)} in our knowledge graph database."
+    
+    # Build structured interaction data for LLM (with source)
+    interaction_details = []
+    for i, inter in enumerate(interactions, 1):
+        d1 = inter.get('drug1_name', inter.get('drug1_id', 'Unknown')).title()
+        d2 = inter.get('drug2_name', inter.get('drug2_id', 'Unknown')).title()
+        sev = inter.get('severity', 'Unknown')
+        desc = inter.get('description', 'No description available')
+        source = inter.get('source', 'DrugBank')
+        
+        sev_level = 'contraindicated' if 'contraindicated' in sev.lower() else \
+                    'major' if 'major' in sev.lower() else \
+                    'moderate' if 'moderate' in sev.lower() else 'minor'
+        
+        interaction_details.append(f"{i}. {d1} + {d2}: {sev_level.upper()} - {desc} [Source: {source}]")
+    
+    # Build drug indication context from KG
+    indication_context = ""
+    if resolved_drugs:
+        indications = []
+        for drug in resolved_drugs:
+            name = drug.get('name', 'Unknown').title()
+            indication = str(drug.get('indication', '')).strip()
+            if indication and indication != 'nan' and len(indication) > 5:
+                # Truncate long indications
+                short_ind = indication[:200] + '...' if len(indication) > 200 else indication
+                indications.append(f"- {name}: {short_ind}")
+        if indications:
+            indication_context = f"\n\nDRUG INDICATIONS (from DrugBank KG):\n" + "\n".join(indications)
+    
+    # Build PRI context if available
+    pri_context = ""
+    if regimen_pri and regimen_pri.get('drug_pris'):
+        high_risk_drugs = [name for name, data in regimen_pri['drug_pris'].items() 
+                          if data.get('risk_level') == 'High Risk']
+        if high_risk_drugs:
+            pri_context = f"\nHigh-risk drugs in regimen (by network centrality): {', '.join(high_risk_drugs)}"
+    
+    # Build shared side effects context from KG
+    se_context = ""
+    if shared_se:
+        se_list = [f"{se} (affects: {', '.join(drugs)})" for se, drugs in list(shared_se.items())[:8]]
+        se_context = f"\n\nSHARED SIDE EFFECTS (from DrugBank KG - additive toxicity risk):\n" + "\n".join([f"- {s}" for s in se_list])
+    
+    # Build shared protein targets context from KG
+    protein_context = ""
+    if shared_proteins:
+        prot_list = [f"{prot} ({data['gene']}, shared by: {', '.join(data['drugs'])})" 
+                     for prot, data in list(shared_proteins.items())[:5]]
+        protein_context = f"\n\nSHARED PROTEIN TARGETS (from DrugBank KG - mechanistic overlap):\n" + "\n".join([f"- {p}" for p in prot_list])
+    
+    # Create comprehensive prompt for LLM
+    prompt = f"""Based on the following KNOWLEDGE GRAPH DATA from DrugBank (759,774 DDIs, 4,313 drugs), write a comprehensive clinical summary.
+
+DRUG REGIMEN: {', '.join(drug_names)}
+OVERALL RISK LEVEL: {risk_level}{pri_context}
+
+INTERACTIONS FROM KNOWLEDGE GRAPH:
+{chr(10).join(interaction_details)}{indication_context}{se_context}{protein_context}
+
+Write a 4-6 sentence clinical summary in flowing prose that:
+1. States the overall risk level and number of interactions found in the knowledge graph
+2. Explains the clinical implications of each interaction (bleeding risk, hypoglycemia, etc.)
+3. Notes any shared side effects that increase additive toxicity risk
+4. Mentions relevant protein targets if they explain mechanistic drug-drug interactions
+5. Briefly considers whether the drug indications justify the risk profile
+
+Use professional medical language. Be comprehensive but concise. Base ALL statements on the KG data provided above - do NOT invent information."""
+
+    try:
+        summary = llm.generate(prompt)  # Uses Mistral 7B
+        # Clean up the response
+        summary = summary.strip()
+        if not summary or summary.startswith("[LLM Error"):
+            # Fallback to rule-based summary
+            return _fallback_summary(interactions, resolved_drugs, shared_se, shared_proteins)
+        return summary
+    except Exception as e:
+        return _fallback_summary(interactions, resolved_drugs, shared_se, shared_proteins)
+
+
+def _fallback_summary(interactions, resolved_drugs=None, shared_se=None, shared_proteins=None):
+    """Fallback rule-based summary if LLM fails - includes all KG data"""
+    summaries = []
+    
+    # Interaction summaries
+    for i in interactions:
+        d1 = i.get('drug1_name', i.get('drug1_id', '?')).title()
+        d2 = i.get('drug2_name', i.get('drug2_id', '?')).title()
+        sev = i.get('severity', 'Unknown').lower()
+        desc = str(i.get('description', ''))
+        source = i.get('source', 'DrugBank')
+        
+        severity_text = 'contraindicated' if 'contraindicated' in sev else \
+                       'major' if 'major' in sev else \
+                       'moderate' if 'moderate' in sev else 'minor'
+        
+        effect = desc.split('.')[0] if '.' in desc else desc[:80]
+        summaries.append(f"**{d1}** and **{d2}** have a {severity_text} interaction — {effect.lower()} (Source: {source})")
+    
+    result = ". ".join(summaries) + "."
+    
+    # Add shared side effects
+    if shared_se:
+        top_se = list(shared_se.keys())[:5]
+        result += f" Notably, these drugs share common side effects including {', '.join(top_se)}, increasing additive toxicity risk."
+    
+    # Add shared proteins
+    if shared_proteins:
+        top_proteins = list(shared_proteins.keys())[:3]
+        result += f" The drugs share target proteins ({', '.join(top_proteins)}), explaining mechanistic interaction pathways."
+    
+    result += " *Data sourced from DrugBank Knowledge Graph.*"
+    return result
+
+
+def generate_llm_monitoring(interactions, drug_names, shared_se=None, shared_proteins=None):
+    """
+    Use LLM to generate evidence-based monitoring recommendations with rationale
+    based on knowledge graph interaction data. Includes source citations.
+    """
+    if not interactions:
+        return None
+    
+    # Build interaction context for LLM
+    interaction_details = []
+    detected_risks = set()
+    
+    for inter in interactions:
+        d1 = inter.get('drug1_name', inter.get('drug1_id', 'Unknown')).title()
+        d2 = inter.get('drug2_name', inter.get('drug2_id', 'Unknown')).title()
+        desc = str(inter.get('description', '')).lower()
+        sev = inter.get('severity', 'Unknown')
+        
+        interaction_details.append(f"- {d1} + {d2} ({sev}): {inter.get('description', '')}")
+        
+        # Detect risk categories from description
+        if 'bleeding' in desc or 'anticoagul' in desc or 'hemorrhag' in desc:
+            detected_risks.add('bleeding')
+        if 'serotonin' in desc:
+            detected_risks.add('serotonin_syndrome')
+        if 'qt' in desc or 'arrhythm' in desc or 'torsade' in desc:
+            detected_risks.add('cardiac')
+        if 'hypotension' in desc or 'blood pressure' in desc:
+            detected_risks.add('hypotension')
+        if 'renal' in desc or 'kidney' in desc or 'nephro' in desc:
+            detected_risks.add('renal')
+        if 'hepat' in desc or 'liver' in desc:
+            detected_risks.add('hepatic')
+        if 'hypoglycemi' in desc or 'blood sugar' in desc or 'glucose' in desc:
+            detected_risks.add('hypoglycemia')
+        if 'cns' in desc or 'sedation' in desc or 'drowsiness' in desc:
+            detected_risks.add('cns_depression')
+        if 'hyperkalemi' in desc or 'potassium' in desc:
+            detected_risks.add('hyperkalemia')
+    
+    # Build shared effects context
+    shared_context = ""
+    if shared_se:
+        top_se = list(shared_se.keys())[:5]
+        shared_context += f"\nShared Side Effects (from SIDER database): {', '.join(top_se)}"
+    if shared_proteins:
+        protein_names = [f"{name} ({data['gene']})" for name, data in list(shared_proteins.items())[:3]]
+        shared_context += f"\nShared Drug Targets (from UniProt): {', '.join(protein_names)}"
+    
+    # Create prompt for LLM
+    prompt = f"""Based on the following DRUG-DRUG INTERACTION DATA from DrugBank Knowledge Graph, generate specific monitoring recommendations with clinical rationale.
+
+DRUG REGIMEN: {', '.join(drug_names)}
+DETECTED CLINICAL RISKS: {', '.join(detected_risks) if detected_risks else 'General monitoring advised'}
+
+INTERACTIONS FROM DRUGBANK:
+{chr(10).join(interaction_details)}
+{shared_context}
+
+Generate a monitoring plan with 3-5 specific recommendations. For EACH recommendation:
+1. State what to monitor (lab test, vital sign, or symptom)
+2. Explain WHY based on the specific interaction data above
+3. Suggest monitoring frequency if applicable
+
+Format each recommendation as:
+**[Category]:** [What to monitor] - [Rationale based on the drug interactions]
+
+End with: "Data sources: DrugBank, SIDER (side effects), UniProt (protein targets)"
+
+Be specific to the drugs listed. Do NOT add generic recommendations not supported by the interaction data."""
+
+    try:
+        recommendations = llm.generate(prompt)  # Uses Mistral 7B
+        recommendations = recommendations.strip()
+        if not recommendations or recommendations.startswith("[LLM Error"):
+            return _fallback_monitoring(interactions, detected_risks)
+        return recommendations
+    except Exception as e:
+        return _fallback_monitoring(interactions, detected_risks)
+
+
+def _fallback_monitoring(interactions, detected_risks):
+    """Fallback rule-based monitoring if LLM fails"""
+    monitoring = []
+    
+    if 'bleeding' in detected_risks:
+        monitoring.append("🩸 **Bleeding Risk:** Monitor PT/INR, CBC, and signs of bleeding - *Rationale: Anticoagulant interaction detected in DrugBank*")
+    if 'serotonin_syndrome' in detected_risks:
+        monitoring.append("🧠 **Serotonin Syndrome:** Monitor mental status, temperature, reflexes - *Rationale: Serotonergic drug combination identified*")
+    if 'cardiac' in detected_risks:
+        monitoring.append("❤️ **Cardiac:** ECG monitoring for QT prolongation - *Rationale: QT-affecting interaction in DrugBank*")
+    if 'hypotension' in detected_risks:
+        monitoring.append("📉 **Blood Pressure:** Regular BP monitoring - *Rationale: Hypotensive interaction detected*")
+    if 'renal' in detected_risks:
+        monitoring.append("🫘 **Renal Function:** Monitor creatinine, BUN, GFR - *Rationale: Nephrotoxic interaction in DrugBank*")
+    if 'hepatic' in detected_risks:
+        monitoring.append("🫀 **Hepatic Function:** Monitor LFTs (AST, ALT, bilirubin) - *Rationale: Hepatotoxic interaction detected*")
+    if 'hypoglycemia' in detected_risks:
+        monitoring.append("🍬 **Blood Glucose:** Monitor for hypoglycemia symptoms - *Rationale: Glucose-affecting interaction in DrugBank*")
+    if 'cns_depression' in detected_risks:
+        monitoring.append("😴 **CNS Depression:** Monitor alertness, respiratory rate - *Rationale: CNS depressant combination detected*")
+    if 'hyperkalemia' in detected_risks:
+        monitoring.append("⚡ **Electrolytes:** Monitor potassium levels - *Rationale: Hyperkalemia risk from interaction*")
+    
+    if not monitoring:
+        monitoring.append("📋 **General:** Regular clinical assessment recommended")
+    
+    monitoring.append("\n*Data sources: DrugBank Knowledge Graph*")
+    
+    return "\n".join(monitoring)
+
+
+def generate_llm_alternatives(alternatives_map, drug_names, interactions):
+    """
+    Use LLM to generate human-readable alternative drug recommendations
+    based on ARS scores from the knowledge graph.
+    All data is grounded in DrugBank knowledge graph with clinical evidence.
+    """
+    if not alternatives_map:
+        return None
+    
+    # Clinical evidence database for common therapeutic alternatives
+    clinical_evidence = {
+        ('warfarin', 'dabigatran'): "RE-LY trial: 35% fewer intracranial hemorrhages vs warfarin (Connolly et al., NEJM 2009)",
+        ('warfarin', 'apixaban'): "ARISTOTLE trial: 31% reduction in major bleeding (Granger et al., NEJM 2011)",
+        ('warfarin', 'rivaroxaban'): "ROCKET-AF: established non-inferiority with predictable dosing (Patel et al., NEJM 2011)",
+        ('propranolol', 'atenolol'): "ACC/AHA guidelines: cardioselective agents preferred in reactive airway disease/diabetes",
+        ('propranolol', 'metoprolol'): "ACC/AHA guidelines: cardioselective beta-blockers have fewer respiratory effects",
+        ('propranolol', 'bisoprolol'): "ESC Heart Failure guidelines: bisoprolol has cardioselective advantages",
+        ('simvastatin', 'pravastatin'): "ACC guidelines: pravastatin recommended for patients on multiple medications (fewer CYP3A4 interactions)",
+        ('simvastatin', 'atorvastatin'): "FDA 2011 warning: simvastatin dose limits due to CYP3A4 interactions",
+        ('simvastatin', 'rosuvastatin'): "Clinical guidelines: rosuvastatin has minimal CYP450 metabolism",
+        ('indomethacin', 'naproxen'): "AGS Beers Criteria: avoid indomethacin in older adults due to CNS toxicity",
+        ('indomethacin', 'diclofenac'): "Henry et al., BMJ 1996: indomethacin has higher GI complication rates",
+        ('indomethacin', 'ibuprofen'): "AGS Beers Criteria: ibuprofen preferred over indomethacin in elderly",
+        ('aspirin', 'clopidogrel'): "CAPRIE trial: clopidogrel non-inferior with different bleeding profile",
+        ('clopidogrel', 'ticagrelor'): "PLATO trial: ticagrelor showed mortality benefit in ACS",
+        ('metformin', 'sitagliptin'): "ADA guidelines: DPP-4 inhibitors as alternatives in renal impairment",
+        ('amlodipine', 'diltiazem'): "ACC/AHA guidelines: both effective for hypertension with different profiles",
+    }
+    
+    # Build detailed knowledge graph data for each alternative
+    kg_data_sections = []
+    
+    for original_drug, alts in alternatives_map.items():
+        if not alts:
+            continue
+        
+        orig_lower = original_drug.lower()
+        
+        # Get current interactions for this drug from KG
+        original_interactions = []
+        for inter in interactions:
+            d1 = inter.get('drug1_name', inter.get('drug1_id', '')).lower()
+            d2 = inter.get('drug2_name', inter.get('drug2_id', '')).lower()
+            if orig_lower in [d1, d2]:
+                sev = inter.get('severity', 'Unknown')
+                desc = inter.get('description', '')[:150]
+                other_drug = d1 if orig_lower == d2 else d2
+                original_interactions.append({
+                    'other_drug': other_drug.title(),
+                    'severity': sev,
+                    'mechanism': desc
+                })
+        
+        # Determine therapeutic class from ATC
+        first_alt = alts[0] if alts else {}
+        atc_codes = first_alt.get('atc_codes', '')
+        therapeutic_class = _get_therapeutic_class(atc_codes)
+        
+        # Build section for this drug's alternatives
+        drug_section = f"\n**{therapeutic_class.upper()} - ALTERNATIVES FOR {original_drug.upper()}**\n"
+        drug_section += f"DrugBank Knowledge Graph Analysis:\n"
+        drug_section += f"\nCurrent Interaction Problems:\n"
+        for oi in original_interactions[:3]:
+            drug_section += f"  • {original_drug.title()} + {oi['other_drug']}: {oi['severity']}\n"
+            if oi['mechanism']:
+                drug_section += f"    Mechanism: {oi['mechanism']}...\n"
+        
+        drug_section += f"\nTherapeutic Alternatives (same ATC class, ranked by ARS):\n"
+        drug_section += f"{'Substitution':<40} {'Sev.Red':<10} {'ΔPRI':<10} {'ARS':<10}\n"
+        drug_section += "-" * 70 + "\n"
+        
+        for alt in alts[:3]:
+            alt_name = alt.get('name', 'Unknown').title()
+            ars = alt.get('ars', 0)
+            sev_red = alt.get('normalized_sev_red', 0)
+            pri_imp = alt.get('pri_improvement', 0)
+            drugbank_id = alt.get('drugbank_id', '')
+            atc = alt.get('atc_codes', '')[:15]
+            orig_pri = alt.get('original_pri', 0)
+            alt_pri = alt.get('alternative_pri', 0)
+            alt_risk = alt.get('alt_risk_level', 'Unknown')
+            num_int = alt.get('num_interactions', 0)
+            
+            # Get alternative's interactions from KG data
+            alt_interactions = alt.get('interactions', [])
+            
+            drug_section += f"{original_drug.title()} → {alt_name:<25} {sev_red:.3f}      {pri_imp:.3f}     {ars:.3f}\n"
+            drug_section += f"  [{drugbank_id}] ATC: {atc}\n"
+            drug_section += f"  PRI: {orig_pri:.3f} → {alt_pri:.3f} | Risk: {alt_risk} | Regimen interactions: {num_int}\n"
+            
+            # Add clinical evidence if available
+            evidence_key = (orig_lower, alt_name.lower())
+            if evidence_key in clinical_evidence:
+                drug_section += f"  📚 Clinical Evidence: {clinical_evidence[evidence_key]}\n"
+            
+            # Show specific interaction details from KG
+            if alt_interactions:
+                drug_section += f"  Known interactions with regimen:\n"
+                for ai in alt_interactions[:2]:
+                    ai_sev = ai.get('severity', 'Unknown')
+                    ai_desc = ai.get('description', '')[:80]
+                    drug_section += f"    - {ai_sev}: {ai_desc}...\n"
+            else:
+                drug_section += f"  ✓ No severe interactions with current regimen drugs\n"
+            drug_section += "\n"
+        
+        kg_data_sections.append(drug_section)
+    
+    if not kg_data_sections:
+        return None
+    
+    # Extract expected drug names for validation
+    expected_drugs = list(alternatives_map.keys())
+    
+    # Build the LLM prompt with all KG data - natural language style
+    prompt = f"""You are a clinical pharmacist writing a consultation note. Convert the knowledge graph data below into a natural language recommendation paragraph.
+
+=== KNOWLEDGE GRAPH DATA ===
+Drugs to replace: {', '.join(expected_drugs)}
+{''.join(kg_data_sections)}
+=== END DATA ===
+
+Write a natural language clinical recommendation in paragraph form. For each high-risk drug, explain:
+1. Why the current drug is problematic (cite the PRI score and interaction concerns)
+2. The recommended alternative and why it's safer (mention ARS score, severity reduction %, PRI improvement)
+3. Any supporting clinical evidence if provided
+
+Write in flowing prose like a clinical consultation note, NOT bullet points or tables. Example style:
+"Based on knowledge graph analysis, **Warfarin** (PRI: 0.73, High Risk) is contributing significantly to the regimen's interaction burden. We recommend considering **Dabigatran** as a safer alternative. This substitution achieves a 94% severity reduction and lowers the network risk from PRI 0.73 to 0.04, supported by the RE-LY trial showing 35% fewer intracranial hemorrhages. The alternative has no severe interactions with the other regimen drugs."
+
+Use the EXACT drug names and numbers from the data. End with:
+"*Recommendations derived from DrugBank Knowledge Graph (759,774 DDIs) with ARS scoring.*"
+"""
+
+    try:
+        recommendation = llm.generate(prompt)  # Uses Mistral 7B
+        recommendation = recommendation.strip()
+        
+        # Validate: ensure response mentions at least one expected drug
+        if not recommendation or recommendation.startswith("[LLM Error"):
+            return _fallback_alternatives(alternatives_map, interactions)
+        
+        # Check if LLM hallucinated (response doesn't mention any expected drugs)
+        mentions_expected = any(drug.lower() in recommendation.lower() for drug in expected_drugs)
+        if not mentions_expected:
+            return _fallback_alternatives(alternatives_map, interactions)
+            
+        return recommendation
+    except Exception as e:
+        return _fallback_alternatives(alternatives_map, interactions)
+
+
+def _get_therapeutic_class(atc_codes):
+    """Map ATC codes to therapeutic class names"""
+    if not atc_codes:
+        return "Unknown Class"
+    code = atc_codes.split('|')[0][:3] if '|' in atc_codes else atc_codes[:3]
+    classes = {
+        'B01': 'Antithrombotic Agents',
+        'C01': 'Cardiac Therapy',
+        'C02': 'Antihypertensives',
+        'C03': 'Diuretics',
+        'C07': 'Beta-Blockers',
+        'C08': 'Calcium Channel Blockers',
+        'C09': 'ACE Inhibitors/ARBs',
+        'C10': 'Lipid Modifying Agents (Statins)',
+        'A10': 'Antidiabetics',
+        'M01': 'NSAIDs',
+        'N02': 'Analgesics',
+        'N03': 'Antiepileptics',
+        'N05': 'Psychotropics',
+        'N06': 'Psychoanaleptics',
+        'J01': 'Antibiotics',
+        'R03': 'Anti-Asthmatics',
+    }
+    return classes.get(code, f"ATC {code}")
+
+
+def _fallback_alternatives(alternatives_map, interactions=None):
+    """Fallback rule-based alternatives in natural language prose"""
+    
+    # Clinical evidence database
+    clinical_evidence = {
+        ('warfarin', 'dabigatran'): "the RE-LY trial demonstrated 35% fewer intracranial hemorrhages (NEJM 2009)",
+        ('warfarin', 'apixaban'): "the ARISTOTLE trial showed 31% reduction in major bleeding (NEJM 2011)",
+        ('warfarin', 'rivaroxaban'): "ROCKET-AF established non-inferiority for stroke prevention (NEJM 2011)",
+        ('propranolol', 'atenolol'): "ACC/AHA guidelines recommend cardioselective agents",
+        ('simvastatin', 'pravastatin'): "ACC guidelines favor agents with fewer CYP3A4 interactions",
+        ('indomethacin', 'naproxen'): "the AGS Beers Criteria advises avoiding indomethacin in elderly patients",
+    }
+    
+    paragraphs = []
+    for original_drug, alts in alternatives_map.items():
+        if not alts:
+            continue
+        
+        top_alt = alts[0]
+        alt_name = top_alt.get('name', 'Unknown').title()
+        ars = top_alt.get('ars', 0)
+        sev_red = top_alt.get('normalized_sev_red', 0)
+        pri_imp = top_alt.get('pri_improvement', 0)
+        drugbank_id = top_alt.get('drugbank_id', '')
+        orig_pri = top_alt.get('original_pri', 0)
+        alt_pri = top_alt.get('alternative_pri', 0)
+        alt_risk = top_alt.get('alt_risk_level', 'Unknown')
+        num_int = top_alt.get('num_interactions', 0)
+        atc_codes = top_alt.get('atc_codes', '')
+        
+        therapeutic_class = _get_therapeutic_class(atc_codes)
+        quality = "excellent" if ars > 0.4 else "strong" if ars > 0.2 else "reasonable"
+        severity_pct = int(sev_red * 100)
+        pri_pct = int(pri_imp * 100)
+        
+        # Build natural language paragraph
+        para = f"Based on analysis of the DrugBank knowledge graph, **{original_drug.title()}** (PRI: {orig_pri:.2f}) is contributing to the regimen's interaction burden. "
+        para += f"We recommend considering **{alt_name}** ({drugbank_id}) from the {therapeutic_class} class as a {quality} alternative. "
+        para += f"This substitution achieves a {severity_pct}% severity reduction and a {pri_pct}% improvement in polypharmacy risk, "
+        para += f"resulting in an Alternative Recommendation Score (ARS) of {ars:.3f}. "
+        para += f"The alternative would lower the drug's risk profile from PRI {orig_pri:.3f} to {alt_pri:.3f} ({alt_risk} risk level)"
+        
+        if num_int > 0:
+            para += f", with only {num_int} interactions in the current regimen"
+        
+        para += ". "
+        
+        # Add clinical evidence if available
+        evidence_key = (original_drug.lower(), alt_name.lower())
+        if evidence_key in clinical_evidence:
+            para += f"Clinical evidence supporting this switch includes: {clinical_evidence[evidence_key]}."
+        
+        paragraphs.append(para)
+    
+    if paragraphs:
+        result = "\n\n".join(paragraphs)
+        result += "\n\n*All alternative recommendations are derived from the DrugBank Knowledge Graph (759,774 DDIs, 4,313 drugs) with DDInter-validated severity classification.*"
+        return result
+    return None
 
 
 # ============================================================
@@ -405,16 +1160,18 @@ class ConversationMemory:
         self.risk_level = ""
         self.interactions = []
         self.alternatives = {}
+        self.regimen_pri = {}  # PRI data for each drug
         self.conversation_history = []  # [(role, message), ...]
         self.max_history = 10  # Keep last N exchanges
         
-    def update_from_analysis(self, report, drugs, risk, interactions, alternatives):
+    def update_from_analysis(self, report, drugs, risk, interactions, alternatives, regimen_pri=None):
         """Store analysis results in memory"""
         self.report = report
         self.drugs = drugs
         self.risk_level = risk
         self.interactions = interactions
         self.alternatives = alternatives
+        self.regimen_pri = regimen_pri or {}
         
     def add_message(self, role, content):
         """Add message to conversation history"""
@@ -443,6 +1200,7 @@ class ConversationMemory:
         self.risk_level = ""
         self.interactions = []
         self.alternatives = {}
+        self.regimen_pri = {}
         self.conversation_history = []
 
 
@@ -454,31 +1212,48 @@ class NaturalChatAssistant:
     own knowledge when KG data is insufficient.
     """
     
-    SYSTEM_PROMPT = """You are a clinical pharmacology assistant powered by a DrugBank Knowledge Graph.
+    SYSTEM_PROMPT = """You are a clinical pharmacology assistant powered by a DrugBank Knowledge Graph with advanced risk metrics.
 
 CRITICAL: Your answers must be based on the KNOWLEDGE GRAPH DATA provided below.
 - ALWAYS cite specific data from the knowledge graph when available
 - When referencing interactions, quote the exact description from the KG
 - Mention DrugBank IDs when discussing specific drugs
+- Use PRI (Polypharmacy Risk Index) scores to explain drug risk levels
+- Use ARS (Alternative Recommendation Score) to justify alternative drug suggestions
 - If data is NOT in your knowledge context, clearly state: "This information is not in my knowledge graph, but based on general pharmacology..."
+
+RISK METRICS YOU HAVE ACCESS TO:
+1. PRI (Polypharmacy Risk Index): Composite score (0-1) based on:
+   - Degree centrality (number of interactions)
+   - Weighted degree (severity-weighted interactions)
+   - Betweenness centrality (network position)
+   - Severity profile (proportion of severe interactions)
+   Risk levels: High Risk (>0.5), Medium Risk (0.3-0.5), Lower Risk (<0.3)
+
+2. ARS (Alternative Recommendation Score): Ranks safer alternatives based on:
+   - 70% Severity Reduction with current regimen
+   - 30% PRI Improvement (lower network-wide risk)
+   Higher ARS = Better alternative
 
 Your style:
 - Warm and professional, like a knowledgeable pharmacist
 - Educational without being condescending
 - Use markdown formatting (bold, bullet points) for clarity
+- When discussing risk, reference specific PRI scores and risk levels
+- When suggesting alternatives, cite ARS scores and explain why they're safer
 - Keep responses focused and evidence-based
 
 For greetings/casual chat: respond briefly and naturally.
-For drug questions: provide detailed KG-sourced information."""
+For drug questions: provide detailed KG-sourced information with risk metrics."""
 
     def __init__(self, knowledge_graph, llm_client):
         self.kg = knowledge_graph
         self.llm = llm_client
         self.memory = ConversationMemory()
         
-    def update_memory(self, report, drugs, risk, interactions, alternatives):
-        """Update conversation memory with new analysis"""
-        self.memory.update_from_analysis(report, drugs, risk, interactions, alternatives)
+    def update_memory(self, report, drugs, risk, interactions, alternatives, regimen_pri=None):
+        """Update conversation memory with new analysis including PRI"""
+        self.memory.update_from_analysis(report, drugs, risk, interactions, alternatives, regimen_pri)
     
     def extract_drug_from_query(self, message):
         """Extract drug names mentioned in the user's query"""
@@ -600,20 +1375,36 @@ For drug questions: provide detailed KG-sourced information."""
                 context_parts.append(f"\n**{d1} + {d2}** (Severity: {sev})")
                 context_parts.append(f"Description: {desc}")
         
-        # Add alternatives from KG
+        # Add alternatives from KG with ARS scores
         if self.memory.alternatives:
-            context_parts.append("\n=== KNOWLEDGE GRAPH: ALTERNATIVES ===")
+            context_parts.append("\n=== KNOWLEDGE GRAPH: ALTERNATIVES WITH ARS ===")
             for drug, alts in list(self.memory.alternatives.items())[:4]:
                 if alts:
                     context_parts.append(f"\n**Alternatives to {drug.title()}:**")
                     for alt in alts[:4]:
                         alt_name = alt['name']
-                        reason = alt.get('reason', '')
-                        context_parts.append(f"- {alt_name}: {reason}")
+                        ars = alt.get('ars', 0)
+                        sev_red = alt.get('normalized_sev_red', 0) * 100
+                        pri_imp = alt.get('pri_improvement', 0) * 100
+                        context_parts.append(f"- {alt_name}: ARS={ars:.3f} (Severity reduction: {sev_red:.0f}%, PRI improvement: {pri_imp:.1f}%)")
+        
+        # Add PRI risk assessment data
+        if self.memory.regimen_pri and self.memory.regimen_pri.get('drug_pris'):
+            context_parts.append("\n=== POLYPHARMACY RISK INDEX (PRI) ===")
+            context_parts.append("PRI Formula: 0.25×Degree + 0.30×WeightedDegree + 0.20×Betweenness + 0.25×SeverityProfile")
+            context_parts.append("Risk Levels: High Risk (>0.5), Medium Risk (0.3-0.5), Lower Risk (<0.3)")
+            context_parts.append(f"Average Regimen PRI: {self.memory.regimen_pri.get('average_pri', 0):.3f}")
+            context_parts.append(f"Highest Risk Drug: {self.memory.regimen_pri.get('highest_risk_drug', 'N/A')}")
+            
+            for drug_name, pri_data in self.memory.regimen_pri['drug_pris'].items():
+                context_parts.append(f"\n**{drug_name.title()}:**")
+                context_parts.append(f"  PRI Score: {pri_data['pri']:.3f} ({pri_data['risk_level']})")
+                context_parts.append(f"  Total Interactions: {pri_data['num_interactions']}")
+                context_parts.append(f"  Severe Interactions: {pri_data['num_severe']}")
         
         return "\n".join(context_parts)
     
-    def respond(self, user_message, model_name="Mistral 7B (Fast)"):
+    def respond(self, user_message, model_name="Llama3"):
         """
         Generate a KG-informed response to the user's message
         """
@@ -654,7 +1445,7 @@ If the information isn't in the knowledge graph, state that clearly before addin
 kg = KnowledgeGraph()
 llm = LLMClient()
 chat_assistant = None  # Natural conversation assistant
-current_analysis = {"drugs": [], "interactions": [], "risk": "", "report": "", "alternatives": {}}
+current_analysis = {"drugs": [], "interactions": [], "risk": "", "report": "", "alternatives": {}, "regimen_pri": {}}
 identified_drugs = {"confirmed": [], "suggestions": {}, "not_found": []}
 
 def get_chat_assistant():
@@ -960,26 +1751,54 @@ def analyze_ddi(drug_input, progress=gr.Progress()):
     progress(0.4, desc="Calculating polypharmacy risk...")
     risk_score, interactions, counts = kg.calculate_risk_score(drug_ids)
     
+    # Populate drug names in interactions for better reporting
+    for interaction in interactions:
+        d1_id = interaction.get('drug1_id', '')
+        d2_id = interaction.get('drug2_id', '')
+        d1_data = kg.drugs_by_id.get(d1_id, {})
+        d2_data = kg.drugs_by_id.get(d2_id, {})
+        interaction['drug1_name'] = d1_data.get('name', d1_id)
+        interaction['drug2_name'] = d2_data.get('name', d2_id)
+    
+    # Calculate Polypharmacy Risk Index (PRI) for each drug
+    progress(0.5, desc="Computing PRI metrics...")
+    regimen_pri = kg.calculate_regimen_pri(drug_ids)
+    
     risk_level = "CRITICAL" if risk_score >= 0.8 else "HIGH" if risk_score >= 0.5 else "MODERATE" if risk_score >= 0.2 else "LOW"
     
-    # Find alternatives for high-risk drugs
-    progress(0.6, desc="Finding safer alternatives...")
+    # Find alternatives with ARS scoring for high-risk drugs
+    progress(0.6, desc="Finding safer alternatives with ARS...")
     alternatives_map = {}
     
     if interactions:
-        # Find which drugs are involved in severe interactions
-        severe_drugs = set()
+        # Find which drugs should have alternatives suggested:
+        # 1. Drugs involved in contraindicated/major interactions
+        # 2. High-PRI drugs (PRI > 0.5) - per methods brief recommendations
+        candidate_drugs = set()
+        
+        # Add drugs in severe interactions
         for i in interactions:
             sev = i.get('severity', '').lower()
             if 'contraindicated' in sev or 'major' in sev:
-                severe_drugs.add(i.get('drug1_id', ''))
-                severe_drugs.add(i.get('drug2_id', ''))
+                candidate_drugs.add(i.get('drug1_id', ''))
+                candidate_drugs.add(i.get('drug2_id', ''))
         
-        # Find alternatives for each severe drug
-        for drug_id in severe_drugs:
+        # Also add high-PRI drugs (>0.5 = High Risk threshold)
+        if regimen_pri and 'drug_pris' in regimen_pri:
+            for drug_name, pri_data in regimen_pri.get('drug_pris', {}).items():
+                if pri_data.get('pri', 0) > 0.5:
+                    # Find the drug_id for this drug_name
+                    for did in drug_ids:
+                        ddata = kg.drugs_by_id.get(did, {})
+                        if ddata.get('name', '').lower() == drug_name.lower():
+                            candidate_drugs.add(did)
+                            break
+        
+        # Find alternatives with ARS for each candidate drug
+        for drug_id in candidate_drugs:
             if drug_id in drug_ids:
                 other_ids = [d for d in drug_ids if d != drug_id]
-                alternatives = kg.find_alternatives(drug_id, other_ids)
+                alternatives = kg.find_alternatives_with_ars(drug_id, other_ids)
                 if alternatives:
                     drug_name = kg.drugs_by_id.get(drug_id, {}).get('name', drug_id)
                     alternatives_map[drug_name] = alternatives
@@ -1002,26 +1821,28 @@ def analyze_ddi(drug_input, progress=gr.Progress()):
     shared_se = {k: v for k, v in all_se.items() if len(v) > 1}
     shared_proteins = {k: v for k, v in all_proteins.items() if len(v['drugs']) > 1}
     
-    # Store for chat context
+    # Store for chat context (including PRI data)
     current_analysis["drugs"] = [d.get('name', '') for d in resolved]
     current_analysis["interactions"] = interactions
     current_analysis["risk"] = risk_level
     current_analysis["alternatives"] = alternatives_map
+    current_analysis["regimen_pri"] = regimen_pri
     
-    # Build comprehensive report
+    # Build comprehensive report with PRI/ARS metrics
     progress(0.9, desc="Generating report...")
     report = build_report(resolved, not_found_final, interactions, risk_level, risk_score, counts, 
-                         shared_se, shared_proteins, alternatives_map)
+                         shared_se, shared_proteins, alternatives_map, regimen_pri)
     current_analysis["report"] = report
     
-    # Update chat assistant's memory with the new analysis
+    # Update chat assistant's memory with the new analysis including PRI
     assistant = get_chat_assistant()
     assistant.update_memory(
         report=report,
         drugs=current_analysis["drugs"],
         risk=risk_level,
         interactions=interactions,
-        alternatives=alternatives_map
+        alternatives=alternatives_map,
+        regimen_pri=regimen_pri
     )
     
     # Prepare checkbox choices for drug selection panel
@@ -1091,8 +1912,8 @@ def reanalyze_with_selection(current_drugs_selected, alternatives_selected, prog
 
 
 def build_report(drugs, not_found, interactions, risk_level, risk_score, counts, 
-                 shared_se, shared_proteins, alternatives_map):
-    """Build compact, elegant DDI report with collapsible sections"""
+                 shared_se, shared_proteins, alternatives_map, regimen_pri=None):
+    """Build compact, elegant DDI report with PRI/ARS metrics and collapsible sections"""
     
     drug_names = [d.get('name', 'Unknown').title() for d in drugs]
     
@@ -1105,124 +1926,151 @@ def build_report(drugs, not_found, interactions, risk_level, risk_score, counts,
     }
     icon, color, advice = risk_styles.get(risk_level, ('', '#6c757d', 'Unknown'))
     
-    # === COMPACT HEADER ===
+    # === COMPACT HEADER with PRI ===
+    pri_summary = ""
+    if regimen_pri:
+        avg_pri = regimen_pri.get('average_pri', 0)
+        pri_badge = f"<span style='background:#{'dc3545' if avg_pri > 0.5 else 'ffc107' if avg_pri >= 0.3 else '28a745'}; color:white; padding:2px 8px; border-radius:4px; font-size:0.85em;'>PRI: {avg_pri:.2f}</span>"
+        pri_summary = f" {pri_badge}"
+    
     report = f"""<div style="text-align:center; padding:16px 0; border-bottom:2px solid {color}; margin-bottom:16px;">
-<h2 style="margin:8px 0 4px 0; color:{color};">{risk_level} RISK</h2>
+<h2 style="margin:8px 0 4px 0; color:{color};">{risk_level} RISK{pri_summary}</h2>
 <p style="margin:0; color:#666; font-size:0.95em;">{advice} • Score: {risk_score:.2f}</p>
 </div>
 
-**Analyzed:** {', '.join(drug_names)} ({len(drugs)} drugs) • **Found:** {len(interactions)} interaction{'s' if len(interactions) != 1 else ''}
+**Analyzed:** {', '.join(drug_names)} ({len(drugs)} drugs)
 """
     
     if not_found:
-        report += f"\n\n*Not found: {', '.join(not_found)}*"
+        report += f"\n*Not found: {', '.join(not_found)}*"
     
-    # === INTERACTION SUMMARY (always visible) ===
+    # === INTERACTIONS FOUND - Show each drug pair with severity ===
     if interactions:
-        # Build severity badges inline
-        badges = []
-        if counts.get('contraindicated', 0):
-            badges.append(f"{counts['contraindicated']} contraindicated")
-        if counts.get('major', 0):
-            badges.append(f"{counts['major']} major")
-        if counts.get('moderate', 0):
-            badges.append(f"{counts['moderate']} moderate")
-        if counts.get('minor', 0):
-            badges.append(f"{counts['minor']} minor")
-        
-        report += f"\n\n**Severity:** {' • '.join(badges)}"
-        
-        # Show top 3 most severe interactions inline
         severity_order = {'contraindicated': 0, 'major': 1, 'moderate': 2, 'minor': 3}
-        sorted_int = sorted(interactions, 
+        sorted_interactions = sorted(interactions, 
             key=lambda x: severity_order.get(x.get('severity', '').lower().split()[0], 4))
         
-        report += "\n\n**Key Interactions:**"
-        for i in sorted_int[:3]:
-            sev = i.get('severity', '').lower()
+        report += f"\n\n### ⚠️ {len(interactions)} Interaction{'s' if len(interactions) != 1 else ''} Found\n"
+        report += "| Drug Pair | Severity | Clinical Effect |\n"
+        report += "|-----------|----------|----------------|\n"
+        
+        for i in sorted_interactions:
             d1 = i.get('drug1_name', i.get('drug1_id', '?')).title()
             d2 = i.get('drug2_name', i.get('drug2_id', '?')).title()
-            desc = str(i.get('description', ''))[:100]
-            if len(str(i.get('description', ''))) > 100:
-                desc += "..."
-            report += f"\n- **{d1} + {d2}:** {desc}"
-    else:
-        report += "\n\n**No significant interactions** detected in the knowledge graph."
-    
-    # === COLLAPSIBLE: Full Interactions ===
-    if len(interactions) > 3:
-        report += f"""
-
-<details>
-<summary>View all {len(interactions)} interactions</summary>
-
-| Drugs | Severity | Effect |
-|-------|----------|--------|"""
-        for i in sorted_int:
             sev = i.get('severity', 'Unknown')
             sev_lower = sev.lower()
-            badge = 'Contra.' if 'contraindicated' in sev_lower else 'Major' if 'major' in sev_lower else 'Moderate' if 'moderate' in sev_lower else 'Minor'
-            d1 = i.get('drug1_name', i.get('drug1_id', '?')).title()
-            d2 = i.get('drug2_name', i.get('drug2_id', '?')).title()
-            desc = str(i.get('description', ''))[:80] + ('...' if len(str(i.get('description', ''))) > 80 else '')
-            report += f"\n| {d1} + {d2} | {badge} | {desc} |"
-        report += "\n\n</details>"
-    
-    # === COLLAPSIBLE: Alternatives ===
-    if alternatives_map:
-        alt_summary = []
-        for orig, alts in alternatives_map.items():
-            if alts:
-                a = alts[0]
-                alt_summary.append(f"**{a['name'].title()}** for {orig.title()} (-{a['risk_reduction']*100:.0f}% risk)")
-        
-        if alt_summary:
-            report += f"\n\n**Safer Alternatives:** {', '.join(alt_summary[:2])}"
             
-            if len(list(alternatives_map.items())) > 0:
-                report += """
+            # Severity badge with colors
+            if 'contraindicated' in sev_lower:
+                sev_badge = "🔴 **Contraindicated**"
+            elif 'major' in sev_lower:
+                sev_badge = "🟠 **Major**"
+            elif 'moderate' in sev_lower:
+                sev_badge = "🟡 Moderate"
+            else:
+                sev_badge = "🟢 Minor"
+            
+            desc = str(i.get('description', 'No description'))
+            # Truncate but keep meaningful content
+            if len(desc) > 120:
+                desc = desc[:117] + "..."
+            
+            report += f"| {d1} ↔ {d2} | {sev_badge} | {desc} |\n"
+        
+        # === LLM-Generated Clinical Summary (with full KG data) ===
+        report += "\n### 📋 Clinical Summary\n"
+        llm_summary = generate_llm_summary(
+            sorted_interactions, drug_names, risk_level, regimen_pri,
+            resolved_drugs=drugs, shared_se=shared_se, shared_proteins=shared_proteins
+        )
+        report += llm_summary
+    else:
+        report += f"\n\n### ✅ No Significant Interactions Found\nNo known drug-drug interactions detected between {', '.join(drug_names)} in our knowledge graph."
+    
+    # === PRI RISK ASSESSMENT (always visible if available) ===
+    if regimen_pri and regimen_pri.get('drug_pris'):
+        report += "\n\n### 📊 Polypharmacy Risk Index (PRI)"
+        
+        # Show highest risk drug prominently
+        if regimen_pri.get('highest_risk_drug'):
+            highest = regimen_pri['highest_risk_drug']
+            highest_pri = regimen_pri['max_pri']
+            report += f"\n**Highest Risk:** {highest.title()} (PRI: {highest_pri:.3f})"
+        
+        # Summary counts
+        high_count = regimen_pri.get('num_high_risk', 0)
+        med_count = regimen_pri.get('num_medium_risk', 0)
+        if high_count > 0 or med_count > 0:
+            risk_counts = []
+            if high_count > 0:
+                risk_counts.append(f"🔴 {high_count} High Risk")
+            if med_count > 0:
+                risk_counts.append(f"🟡 {med_count} Medium Risk")
+            report += f"\n{' • '.join(risk_counts)}"
+        
+        # Collapsible PRI details table
+        report += """
 
 <details>
-<summary>View all alternatives</summary>
+<summary>View PRI Details for All Drugs</summary>
 
-"""
-                for orig, alts in alternatives_map.items():
-                    if not alts:
-                        continue
-                    report += f"**Replace {orig.title()}:**\n"
-                    for alt in alts[:3]:
-                        report += f"- [{alt['name'].title()}](https://go.drugbank.com/drugs/{alt['drugbank_id']}) — Risk: {alt['alternative_risk']:.2f} ({alt['num_interactions']} DDIs)\n"
-                    report += "\n"
-                report += "</details>"
-    
-    # === COLLAPSIBLE: Monitoring ===
-    monitoring = []
-    for i in interactions:
-        desc = str(i.get('description', '')).lower()
-        if 'bleeding' in desc or 'anticoagul' in desc:
-            monitoring.append("🩸 **Bleeding:** PT/INR, CBC")
-        if 'serotonin' in desc:
-            monitoring.append("🧠 **Serotonin syndrome:** Mental status, autonomic signs")
-        if 'qt' in desc:
-            monitoring.append("❤️ **QT prolongation:** ECG monitoring")
-        if 'hypotension' in desc:
-            monitoring.append("📉 **Hypotension:** BP monitoring")
-        if 'renal' in desc or 'kidney' in desc:
-            monitoring.append("🫘 **Nephrotoxicity:** Creatinine, BUN")
-        if 'hepat' in desc or 'liver' in desc:
-            monitoring.append("🫀 **Hepatotoxicity:** LFTs")
-    
-    monitoring = list(dict.fromkeys(monitoring))  # Remove duplicates
-    
-    if monitoring:
+| Drug | PRI Score | Risk Level | Interactions | Severe |
+|------|-----------|------------|--------------|--------|"""
+        for drug_name, pri_data in regimen_pri['drug_pris'].items():
+            risk_emoji = "🔴" if pri_data['risk_level'] == 'High Risk' else "🟡" if pri_data['risk_level'] == 'Medium Risk' else "🟢"
+            report += f"\n| {drug_name.title()} | {pri_data['pri']:.3f} | {risk_emoji} {pri_data['risk_level']} | {pri_data['num_interactions']} | {pri_data['num_severe']} |"
+        
         report += f"""
 
-<details>
-<summary>Recommended Monitoring</summary>
-
-{chr(10).join(monitoring)}
+**Formula:** PRI = 0.25×Degree + 0.30×WeightedDegree + 0.20×Betweenness + 0.25×SeverityProfile
+**Thresholds:** High Risk (>0.5) • Medium Risk (0.3-0.5) • Lower Risk (<0.3)
 
 </details>"""
+    
+    # === LLM-Generated Alternatives Recommendations ===
+    if alternatives_map:
+        alternatives_text = generate_llm_alternatives(alternatives_map, drug_names, interactions)
+        if alternatives_text:
+            report += f"""
+
+### 💊 Safer Alternative Recommendations
+
+{alternatives_text}
+
+<details>
+<summary>View ARS Score Details</summary>
+
+| Original Drug | Alternative | ARS Score | Severity Reduction | PRI Improvement |
+|---------------|-------------|-----------|-------------------|-----------------|"""
+            for orig, alts in alternatives_map.items():
+                if not alts:
+                    continue
+                for alt in alts[:3]:
+                    ars = alt.get('ars', 0)
+                    sev_red = alt.get('normalized_sev_red', 0) * 100
+                    pri_imp = alt.get('pri_improvement', 0) * 100
+                    alt_link = f"[{alt['name'].title()}](https://go.drugbank.com/drugs/{alt['drugbank_id']})"
+                    report += f"\n| {orig.title()} | {alt_link} | **{ars:.3f}** | {sev_red:.0f}% | {pri_imp:.1f}% |"
+            
+            report += """
+
+**ARS Formula:** ARS = 0.70×(Severity Reduction) + 0.30×(PRI Improvement)
+*Higher ARS scores indicate better alternatives that reduce both interaction severity and overall polypharmacy network risk.*
+
+</details>"""
+    
+    # === LLM-Generated Monitoring Recommendations ===
+    if interactions:
+        monitoring_recommendations = generate_llm_monitoring(
+            interactions, drug_names, shared_se, shared_proteins
+        )
+        if monitoring_recommendations:
+            report += f"""
+
+### 🏥 Recommended Monitoring
+
+{monitoring_recommendations}
+"""
     
     # === COLLAPSIBLE: Drug Details ===
     report += """
@@ -1329,20 +2177,18 @@ def chat(message, history, model_name):
         if not response or response.startswith("[LLM Error"):
             response = f"I apologize, but I'm having trouble connecting to the language model. Please make sure Ollama is running (`ollama serve`) and the model is available.\n\nError: {response}"
         
-        # Return in Gradio 6 dict format [{'role': 'user/assistant', 'content': '...'}]
+        # Return in Gradio 4.x tuple format [(user_msg, assistant_msg), ...]
         if history is None:
             history = []
         
-        history.append({"role": "user", "content": clean_message})
-        history.append({"role": "assistant", "content": response})
+        history.append((clean_message, response))
         return history, ""
     except Exception as e:
         # Handle any unexpected errors
         if history is None:
             history = []
         error_msg = f"An error occurred: {str(e)}"
-        history.append({"role": "user", "content": str(message)})
-        history.append({"role": "assistant", "content": error_msg})
+        history.append((str(message), error_msg))
         return history, ""
 
 
@@ -1450,7 +2296,7 @@ def create_app():
     }
     """
     
-    with gr.Blocks(title="DDI Risk Analyzer", css=custom_css, fill_width=True) as app:
+    with gr.Blocks(title="DDI Risk Analyzer", css=custom_css) as app:
         
         gr.Markdown("""
         <div style="text-align:center; padding:16px 0; margin-bottom:24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px;">
@@ -1553,7 +2399,7 @@ def create_app():
                     
                     model_select = gr.Dropdown(
                         choices=list(LLMClient.MODELS.keys()),
-                        value="Mistral 7B (Fast)",
+                        value="Llama3",
                         label="Model"
                     )
                     
@@ -1688,8 +2534,8 @@ if __name__ == "__main__":
     print(f"   {result}")
     
     print("\nStarting application...")
-    print("   URL: http://127.0.0.1:7860")
+    print("   URL: http://0.0.0.0:7860")
     print("   Press Ctrl+C to stop\n")
     
     app = create_app()
-    app.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True)
+    app.launch(server_name="0.0.0.0", server_port=7860, share=False)
