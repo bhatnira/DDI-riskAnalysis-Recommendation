@@ -24,25 +24,32 @@ We analyzed 759,774 cardiovascular drug-drug interaction (DDI) pairs from DrugBa
 
 We derived target severity distributions from DDInter, a literature-curated DDI database with peer-reviewed severity annotations \cite{ddinter2022}. We matched 37,164 cardiovascular/antithrombotic DDI pairs between our DrugBank dataset and DDInter. The matched subset showed: Major 22.1\%, Moderate 73.5\%, Minor 4.4\%. DDInter uses a three-level scheme without a distinct Contraindicated category.
 
-\textbf{Target Selection:} We aligned targets with DDInter's matched CV/AT distribution (Supplementary S0). To split DDInter's Major (22\%) into Contraindicated vs.\ Major, we queried FAERS pharmacovigilance data \cite{faers2024} for all 4,314 cardiovascular/antithrombotic drugs in our dataset: from 116,087 multi-drug adverse event reports involving these specific drugs, death/life-threatening outcomes comprised 20.6\% of serious events. Applying this ratio: Contraindicated $\approx$ 4\%, Major $\approx$ 18\%. Final targets: Contraindicated 4\%, Major 18\%, Moderate 74\%, Minor 4\% (Table~\ref{tab:dist}, ``Target'' column).
+\textbf{Target Selection:} We aligned targets with DDInter's matched CV/AT distribution. To split DDInter's Major (22\%) into Contraindicated vs.\ Major, we queried FAERS pharmacovigilance data \cite{faers2024} for all 4,314 cardiovascular/antithrombotic drugs in our dataset: from 116,087 multi-drug adverse event reports involving these specific drugs, death/life-threatening outcomes comprised 20.6\% of serious events. Applying this ratio: Contraindicated $\approx$ 4\%, Major $\approx$ 18\%. Final targets: Contraindicated 4\%, Major 18\%, Moderate 74\%, Minor 4\% (Table~\ref{tab:dist}, ``Target'' column). Figure~\ref{fig:flowchart} illustrates the complete recalibration framework.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig_recalibration_flowchart.pdf}
+\caption{DDI Severity Recalibration Framework. DrugBank DDI descriptions are matched with DDInter severity labels to create a validated dataset (n=37,164). A 70/30 stratified split separates training (n=26,014) and test (n=11,150) sets. Keyword weights are derived from training data using log-likelihood ratios. Aggregate scores are classified using percentile thresholds to produce the target severity distribution. Validation against DDInter test set yields 66.4\% exact accuracy. Detailed algorithms in Supplementary S1.}
+\label{fig:flowchart}
+\end{figure}
 
 We evaluated four classification approaches:
 
-\textbf{(1) Zero-Shot BART-MNLI:} Direct transformer classification using \texttt{facebook/bart-large-mnli} \cite{lewis2020bart}, a 400M-parameter natural language inference model. Severity classification is framed as textual entailment: each DDI description serves as the \textit{premise}, tested against four \textit{hypotheses} (``This interaction is contraindicated/major/moderate/minor''). The highest-probability class is assigned. No post-processing applied (Supplementary S1).
+\textbf{(1) Zero-Shot BART-MNLI:} Direct transformer classification using \texttt{facebook/bart-large-mnli} \cite{lewis2020bart}, a 400M-parameter natural language inference model. Severity classification is framed as textual entailment: each DDI description serves as the \textit{premise}, tested against four \textit{hypotheses} (``This interaction is contraindicated/major/moderate/minor''). The highest-probability class is assigned. No post-processing applied (Supplementary S1.1).
 
-\textbf{(2) Confidence-Weighted:} Extends Zero-Shot by downgrading high-severity predictions (Contraindicated, Major) when model confidence is low ($<$65\%), as formalized in Supplementary S1.
+\textbf{(2) Confidence-Weighted:} Extends Zero-Shot by downgrading high-severity predictions (Contraindicated, Major) when model confidence is low ($<$65\%), as formalized in Supplementary S1.1.
 
-\textbf{(3) Rule-Based Classifier:} Severity assigned based on clinical keyword pattern matching. We matched 37,164 DDI pairs between DrugBank (which provides interaction descriptions) and DDInter (which provides expert-validated severity labels but no descriptions). Keyword weights $w_k$ were \textbf{empirically derived} using log-likelihood ratios computed from a 70/30 train/test split (training n=26,014, test n=11,150). Keywords predictive of Major (e.g., ``prolongation'' +1.45, ``bleeding'' +1.03) receive positive weights; those predictive of Moderate/Minor (e.g., ``therapeutic'' $-$1.20, ``efficacy'' $-$1.27) receive negative weights. Final severity is assigned by comparing the aggregate score against percentile thresholds derived from training data (equations, weight derivation algorithm, and classification pseudocode detailed in Supplementary S1).
+\textbf{(3) Rule-Based Classifier:} Severity assigned based on clinical keyword pattern matching. We matched 37,164 DDI pairs between DrugBank (which provides interaction descriptions) and DDInter (which provides expert-validated severity labels but no descriptions). Keyword weights $w_k$ were \textbf{empirically derived} using log-likelihood ratios computed from a 70/30 train/test split (training n=26,014, test n=11,150). Keywords predictive of Major (e.g., ``prolongation'' +1.45, ``bleeding'' +1.03) receive positive weights; those predictive of Moderate/Minor (e.g., ``therapeutic'' $-$1.20, ``efficacy'' $-$1.27) receive negative weights. Final severity is assigned by comparing the aggregate score against percentile thresholds derived from training data (equations, weight derivation algorithm, and classification algorithm detailed in Supplementary S1.2).
 
-\textbf{(4) Evidence-Based Classifier:} A hybrid framework combining the empirically-derived keyword weights from Rule-Based with confidence-based penalization. Uses identical weights derived from DDInter training data. Scores are reduced by 20\% for predictions with base classifier confidence $<$50\%. Final classification uses the same percentile-based thresholds as Rule-Based (Supplementary S2).
+\textbf{(4) Evidence-Based Classifier:} A hybrid framework combining the empirically-derived keyword weights from Rule-Based with confidence-based penalization. Uses identical weights derived from DDInter training data. Scores are reduced by 20\% for predictions with base classifier confidence $<$50\%. Final classification uses the same percentile-based thresholds as Rule-Based (Supplementary S1.3).
 
-Both classifiers produce our target 4-class distribution (Contraindicated 4\%/Major 18\%/Moderate 74\%/Minor 4\%). For DDInter validation, Contraindicated is mapped to Major (Supplementary S2).
+Both classifiers produce our target 4-class distribution (Contraindicated 4\%/Major 18\%/Moderate 74\%/Minor 4\%). For DDInter validation, Contraindicated is mapped to Major.
 
 \subsection*{External Validation}
 
-We validated against DDInter \cite{ddinter2022}, a literature-curated database with expert-validated severity annotations independent of our classification methodology (Xiong et al., \textit{Nucleic Acids Research}, 2022). Drug name matching yielded 37,164 validated pairs after filtering Unknown labels (Supplementary S0). 
+We validated against DDInter \cite{ddinter2022}, a literature-curated database with expert-validated severity annotations independent of our classification methodology (Xiong et al., \textit{Nucleic Acids Research}, 2022). Drug name matching yielded 37,164 validated pairs after filtering Unknown labels. 
 
-\textbf{Severity Mapping:} DDInter uses three severity levels (Major/Moderate/Minor) without a Contraindicated category. For validation, we combined our Contraindicated and Major predictions into a single ``Major'' category to match DDInter's schema (Supplementary S2).
+\textbf{Severity Mapping:} DDInter uses three severity levels (Major/Moderate/Minor) without a Contraindicated category. For validation, we combined our Contraindicated and Major predictions into a single ``Major'' category to match DDInter's schema.
 
 \subsection*{Evaluation Metrics and Method Selection}
 
@@ -69,15 +76,15 @@ where $p_o$ is observed agreement (exact accuracy) and $p_e = \sum_c P(\hat{y}=c
 
 Method selection prioritized exact accuracy as the primary metric, with Cohen's $\kappa$ as the secondary criterion for distinguishing methods with similar accuracy. The best-performing method was selected for final severity recalibration of the full DrugBank dataset.
 
-\section*{Results}
+\section*{Results: DDI Severity Prediction from Interaction Descriptions}
 
 \subsection*{Method Comparison}
 
-We evaluated all methods using proper train/test split validation (70\%/30\%). After grid search optimization of classification thresholds on the training set, the Rule-Based classifier achieved \textbf{66.4\%} exact accuracy (95\% CI: 65.5--67.3\%; Supplementary S3.2) on the held-out test set (n=11,150), with 99.3\% adjacent accuracy and Cohen's $\kappa$=+0.096 ($z$=4.77, $p<$0.0001; Supplementary S3.5; Table~\ref{tab:methods}, Figure~\ref{fig:validation}A). McNemar's test confirmed the improvement over Zero-Shot was statistically significant ($\chi^2$=2750.4, $p<$2.2$\times$10$^{-16}$; Supplementary S3.1). 
+We evaluated all methods using proper train/test split validation (70\%/30\%). After grid search optimization of classification thresholds on the training set, the Rule-Based classifier achieved \textbf{66.4\%} exact accuracy (95\% CI: 65.5--67.3\%; Supplementary S2.3) on the held-out test set (n=11,150), with 99.3\% adjacent accuracy and Cohen's $\kappa$=+0.096 ($z$=4.77, $p<$0.0001; Supplementary S2.4; Table~\ref{tab:methods}, Figure~\ref{fig:validation}A). McNemar's test confirmed the improvement over Zero-Shot was statistically significant ($\chi^2$=2750.4, $p<$2.2$\times$10$^{-16}$; Supplementary S2.2). 
 
-\textbf{Score-Severity Correlation:} The keyword scoring successfully discriminated severity levels. Mean scores by DDInter ground truth: Major (+0.93 $\pm$ 1.33), Moderate (+0.07 $\pm$ 1.48), Minor ($-$0.28 $\pm$ 1.25)---demonstrating that empirically-derived weights capture meaningful severity signals (Figure~\ref{fig:validation}D). However, substantial within-class variance limits classification accuracy (Supplementary S1).
+\textbf{Score-Severity Correlation:} The keyword scoring successfully discriminated severity levels. Mean scores by DDInter ground truth: Major (+0.93 $\pm$ 1.33), Moderate (+0.07 $\pm$ 1.48), Minor ($-$0.28 $\pm$ 1.25)---demonstrating that empirically-derived weights capture meaningful severity signals (Figure~\ref{fig:validation}D). However, substantial within-class variance limits classification accuracy.
 
-\textbf{Per-Class Recall:} Major 20.4\%, Moderate 83.5\%, Minor 11.4\%. The Rule-Based classifier correctly identifies the majority of Moderate interactions (the dominant class), though Major interactions show lower recall due to the conservative 92nd percentile threshold. Minor interactions remain challenging due to their low prevalence (4.4\% of test set). The substantial overlap in score distributions across severity classes (Figure~\ref{fig:validation}C) explains this performance ceiling. Full validation statistics in Supplementary S3.
+\textbf{Per-Class Recall:} Major 20.4\%, Moderate 83.5\%, Minor 11.4\%. The Rule-Based classifier correctly identifies the majority of Moderate interactions (the dominant class), though Major interactions show lower recall due to the conservative 92nd percentile threshold. Minor interactions remain challenging due to their low prevalence (4.4\% of test set). The substantial overlap in score distributions across severity classes (Figure~\ref{fig:validation}C) explains this performance ceiling. Full validation statistics in Supplementary S2.
 
 Zero-Shot BART-MNLI and Confidence-Weighted both achieved 22.1\% accuracy with $\kappa$=0.000 (Table~\ref{tab:methods}, Figure~\ref{fig:validation}A--B), reflecting their bias toward over-classifying all interactions as Major ($>$99\% Major predictions).
 
@@ -95,12 +102,12 @@ Confidence-Weighted & 22.1\% (21.3--22.9\%) & 95.6\% & 0.000 \\
 \textbf{Rule-Based} & \textbf{66.4\% (65.5--67.3\%)} & \textbf{99.3\%} & \textbf{+0.096}$^{\dag}$ \\
 Evidence-Based & 66.4\% (65.5--67.3\%) & 99.4\% & +0.096$^{\dag}$ \\
 \bottomrule
-\multicolumn{4}{@{}l@{}}{\footnotesize McNemar's test (Rule-Based vs.~Zero-Shot): $\chi^2$=2750.4, $p<$2.2$\times$10$^{-16}$ (Supplementary S3.1)} \\
-\multicolumn{4}{@{}l@{}}{\footnotesize $^{\dag}$Cohen's $\kappa$ significantly $>$0 ($z$=4.77, $p<$0.0001; Supplementary S3.5)} \\
+\multicolumn{4}{@{}l@{}}{\footnotesize McNemar's test (Rule-Based vs.~Zero-Shot): $\chi^2$=2750.4, $p<$2.2$\times$10$^{-16}$ (Supplementary S2.2)} \\
+\multicolumn{4}{@{}l@{}}{\footnotesize $^{\dag}$Cohen's $\kappa$ significantly $>$0 ($z$=4.77, $p<$0.0001; Supplementary S2.4)} \\
 \end{tabular}
 \end{table}
 
-\textbf{Method Selection:} Rule-Based and Evidence-Based achieved identical performance (Table~\ref{tab:methods}) because the confidence penalty in Evidence-Based (20\% score reduction for low-confidence predictions) has minimal effect on the empirically-derived keyword scores. We selected Rule-Based for final deployment based on parsimony: it achieves equivalent accuracy with a simpler architecture (no confidence component), improving interpretability and reducing computational overhead (Supplementary S2).
+\textbf{Method Selection:} Rule-Based and Evidence-Based achieved identical performance (Table~\ref{tab:methods}) because the confidence penalty in Evidence-Based (20\% score reduction for low-confidence predictions) has minimal effect on the empirically-derived keyword scores. We selected Rule-Based for final deployment based on parsimony: it achieves equivalent accuracy with a simpler architecture (no confidence component), improving interpretability and reducing computational overhead.
 
 \begin{figure}[h]
 \centering
@@ -109,9 +116,9 @@ Evidence-Based & 66.4\% (65.5--67.3\%) & 99.4\% & +0.096$^{\dag}$ \\
 \label{fig:validation}
 \end{figure}
 
-\subsection*{Distribution Alignment}
+\subsection*{Recalibration Impact}
 
-Recalibration substantially reduced severity distribution misalignment (Table~\ref{tab:dist}): Jensen-Shannon divergence decreased from 0.43 to 0.007, with 732,266 predictions (96.4\%) modified. GPU-accelerated processing achieved 15,454 interactions/second (759,774 DDIs in 49s), demonstrating scalability for clinical deployment. Validation statistics detailed in Supplementary S3; data and code availability in Supplementary S4.
+Recalibration substantially reduced severity distribution misalignment (Table~\ref{tab:dist}): Jensen-Shannon divergence decreased from 0.43 to 0.007, with 732,266 predictions (96.4\%) modified. GPU-accelerated processing achieved 15,454 interactions/second (759,774 DDIs in 49s), demonstrating scalability for clinical deployment. Validation statistics detailed in Supplementary S2.
 
 \begin{table}[h]
 \centering

@@ -19,7 +19,7 @@
 
 \subsection*{Knowledge Graph Construction}
 
-We constructed a comprehensive drug-drug interaction (DDI) knowledge graph by integrating data from three authoritative biomedical databases: DrugBank v5.1.9, SIDER 4.1, and the Comparative Toxicogenomics Database (CTD). DrugBank served as the primary source, from which we parsed the complete XML database (1.8 GB) to extract drug identifiers, chemical properties, protein targets, biological pathways, drug categories, and pharmacogenomic data. Drug-side effect associations were obtained from SIDER 4.1 using MedDRA terminology through exact drug name matching (case-insensitive), yielding 1,110 matched drugs and 265,238 associations. Drug-disease relationships were integrated from CTD using a two-tier matching strategy: CAS number matching as the primary method (52,753 associations) followed by exact drug name matching (10,525 associations).
+We constructed a comprehensive drug-drug interaction (DDI) knowledge graph by integrating data from three authoritative biomedical databases: DrugBank v5.1.9, SIDER 4.1, and the Comparative Toxicogenomics Database (CTD) (see Supplementary Section S3 for detailed algorithms). DrugBank served as the primary source, from which we parsed the complete XML database (1.8 GB) to extract drug identifiers, chemical properties, protein targets, biological pathways, drug categories, and pharmacogenomic data. Drug-side effect associations were obtained from SIDER 4.1 using MedDRA terminology through exact drug name matching (case-insensitive), yielding 1,110 matched drugs and 265,238 associations. Drug-disease relationships were integrated from CTD using a two-tier matching strategy: CAS number matching as the primary method (52,753 associations) followed by exact drug name matching (10,525 associations).
 
 Unlike similarity-based approaches that may introduce spurious relationships, our methodology employs exclusively fact-based linkage using exact identifier matching. The matching hierarchy proceeds as follows: DrugBank unique identifiers serve as the primary matching criterion, Chemical Abstracts Service (CAS) registry numbers provide cross-database linking, and exact case-insensitive name matching serves as the tertiary fallback. All relationships include provenance metadata tracking the data source, matching method, and identifier used.
 
@@ -114,7 +114,7 @@ Major & 36,044 & 4.7\% & 18\% \\
 
 \subsection*{Polypharmacy Risk Index}
 
-We developed the Polypharmacy Risk Index (PRI) to quantify individual drug risk within multi-drug regimens. The PRI combines four network-based metrics weighted according to their clinical relevance:
+We developed the Polypharmacy Risk Index (PRI) to quantify individual drug risk within multi-drug regimens (see Supplementary Section S4 for network analysis methodology). The PRI combines four network-based metrics weighted according to their clinical relevance:
 
 \begin{equation}
 \text{PRI}(d) = 0.25 \cdot C_{\text{degree}}(d) + 0.30 \cdot C_{\text{weighted}}(d) + 0.20 \cdot C_{\text{betweenness}}(d) + 0.25 \cdot S(d)
@@ -195,7 +195,7 @@ The integration of network-based polypharmacy risk assessment with multi-objecti
 
 \section*{Data Availability}
 
-The knowledge graph is available as a NetworkX pickle file with complete node and edge attributes, and as Neo4j-compatible CSV files for bulk import.
+The knowledge graph is available as a NetworkX pickle file with complete node and edge attributes, and as Neo4j-compatible CSV files for bulk import. Complete reproducibility information, including software dependencies and execution instructions, is provided in Supplementary Section S5.
 
 \bibliographystyle{plain}
 \begin{thebibliography}{4}
