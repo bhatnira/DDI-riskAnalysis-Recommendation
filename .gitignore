@@ -75,3 +75,6 @@ publication_final/data/
 *.pkl
 *.xml
 **/ddi_edges.csv
+
+# Supplementary image files
+publication_recalibration/supplementary/*.png
