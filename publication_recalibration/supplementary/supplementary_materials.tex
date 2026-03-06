@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -7,8 +7,22 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{float}
+\usepackage{setspace}
+\usepackage{etoolbox}
 \geometry{margin=1in}
+
+% Set 1.5 line spacing for body text
+\onehalfspacing
+
+% Keep verbatim/algorithm blocks in single spacing
+\AtBeginEnvironment{verbatim}{\begin{singlespace}}
+\AtEndEnvironment{verbatim}{\end{singlespace}}
+
+% Prevent widows and orphans
+\widowpenalty=10000
+\clubpenalty=10000
 
 % Suppress automatic section numbering (use manual S1, S2, etc.)
 \setcounter{secnumdepth}{0}
@@ -19,7 +33,186 @@
 \Large\textbf{Supplementary Materials}
 \end{center}
 
+\vspace{0.5em}
+\noindent
+This supplementary document provides detailed methodological descriptions, algorithmic specifications, and validation results that support the main manuscript. Ten sections cover: severity recalibration (S1 to S2), knowledge graph construction and network analysis (S3 to S5), polypharmacy risk assessment with alternative therapy recommendation (S6 to S9), and web application architecture (S10).
+
+\vspace{1em}
+\noindent\textbf{Table of Contents}
+\vspace{0.5em}
+
+\noindent S0: Dataset Characteristics \dotfill \pageref{sec:s0}
+
+\noindent\textbf{Part I: Severity Recalibration}
+\begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \item[] S1: Severity Recalibration Framework \dotfill \pageref{sec:s1}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S1.1 Zero-Shot Classification
+        \item[] S1.2 Rule-Based Classifier
+        \item[] S1.3 Evidence-Based Variant
+        \item[] S1.4 Method Performance Comparison
+        \item[] S1.5 Severity Distribution
+    \end{itemize}
+    \item[] S2: Statistical Methods \dotfill \pageref{sec:s2}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S2.1 Evaluation Metrics
+        \item[] S2.2 McNemar's Test
+        \item[] S2.3 Confidence Intervals
+        \item[] S2.4 Agreement Statistics
+        \item[] S2.5 Additional Metrics
+        \item[] S2.6 Score-Severity Correlation
+        \item[] S2.7 DDInter Validation Metrics
+    \end{itemize}
+\end{itemize}
+
+\noindent\textbf{Part II: Knowledge Graph Construction}
+\begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \item[] S3: Knowledge Graph Construction \dotfill \pageref{sec:s3}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S3.1 Data Sources
+        \item[] S3.2 Entity Matching Strategy
+        \item[] S3.3 Graph Statistics
+    \end{itemize}
+    \item[] S4: Network Analysis Methods \dotfill \pageref{sec:s4}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S4.1 Betweenness Centrality
+        \item[] S4.2 Eigenvector Centrality
+        \item[] S4.3 PageRank Centrality
+        \item[] S4.4 Louvain Community Detection
+    \end{itemize}
+    \item[] S5: Reproducibility \dotfill \pageref{sec:s5}
+\end{itemize}
+
+\noindent\textbf{Part III: Polypharmacy Risk and Alternative Therapy}
+\begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \item[] S6: Polypharmacy Risk Index (PRI) Derivation \dotfill \pageref{sec:s6}
+    \item[] S7: Rule-Based Substitution Framework \dotfill \pageref{sec:s7}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S7.1 Candidate Selection
+        \item[] S7.2 Alternative Recommendation Score (ARS)
+        \item[] S7.3 Severity Reduction Component
+        \item[] S7.4 PRI Improvement Component
+    \end{itemize}
+    \item[] S8: Algorithm Pseudocode \dotfill \pageref{sec:s8}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S8.1 ATC-Based Candidate Filtering
+        \item[] S8.2 Severity Reduction Calculation
+        \item[] S8.3 Alternative Recommendation Score
+        \item[] S8.4 Find Best Alternatives
+    \end{itemize}
+    \item[] S9: Validation \dotfill \pageref{sec:s9}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S9.1 Clinical Evidence Alignment
+        \item[] S9.2 References for Clinical Evidence
+    \end{itemize}
+\end{itemize}
+
+\noindent\textbf{Part IV: Web Application}
+\begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \item[] S10: Web Application Architecture \dotfill \pageref{sec:s10}
+    \begin{itemize}
+        \setlength{\itemsep}{0pt}
+        \item[] S10.1 Input Processing Pipeline
+        \item[] S10.2 Report Generation
+        \item[] S10.3 Chat Assistant
+    \end{itemize}
+\end{itemize}
+
+\vspace{1em}
+
+\section{S0: Dataset Characteristics}
+\label{sec:s0}
+
+\begin{table}[H]
+\centering
+\caption{DDI Dataset Characteristics.}
+\label{tab:ddi_dataset}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Category} & \textbf{Characteristic} & \textbf{\#} \\
+\midrule
+Dataset Overview & Total DDI pairs & 759,774 \\
+ & Unique drugs & 4,314 \\
+ & Mean interactions per drug & 352 \\
+ & Mean description length & 94.5 chars \\
+ & Description length range & 56--220 chars \\
+\midrule
+DDI Properties & Most interacting drug & Quinidine (4,782) \\
+ & Median interactions per drug & 148 \\
+ & Interaction range per drug & 2--4,782 \\
+ & Network density & 8.2\% \\
+\midrule
+ATC Classification & N: Nervous system & 486 (11.3\%) \\
+ & L: Antineoplastic/immunomodulating & 454 (10.5\%) \\
+ & C: Cardiovascular system & 339 (7.9\%) \\
+ & J: Anti-infectives for systemic use & 314 (7.3\%) \\
+ & A: Alimentary tract and metabolism & 298 (6.9\%) \\
+ & R: Respiratory system & 145 (3.4\%) \\
+ & B: Blood and blood forming organs & 144 (3.3\%) \\
+ & G: Genito-urinary system/sex hormones & 142 (3.3\%) \\
+ & M: Musculo-skeletal system & 139 (3.2\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
 \section{S1: Severity Recalibration Framework}
+\label{sec:s1}
+
+\noindent\textbf{Classification Schema Overview}
+
+\begin{verbatim}
+                      +---------------------------+
+                      |   DDI Description Text    |
+                      |   (from DrugBank XML)     |
+                      +-----------+---------------+
+                                  |
+                      +---------------------------+
+                      |   Text Preprocessing      |
+                      |   - Lowercase             |
+                      |   - Tokenization          |
+                      +-----------+---------------+
+                                  |
+        +-------------+-----------+-----------+-------------+
+        |             |           |           |             |
++---------------+ +---------------+ +---------------+ +---------------+
+|  Zero-Shot    | |  Confidence-  | |  Rule-Based   | | Evidence-     |
+|  BART-MNLI    | |  Weighted     | |  Classifier   | | Based Variant |
+|               | |               | |  (Selected)   | |               |
+| - NLI         | | - NLI         | | - Keyword     | | - Keyword     |
+|   inference   | |   inference   | |   matching    | |   matching    |
+| - Entailment  | | - Confidence  | | - Weight sum  | | - Confidence  |
+|   probability | |   downgrade   | | - Percentile  | |   penalty     |
++-------+-------+ +-------+-------+ +-------+-------+ +-------+-------+
+        |                 |               |                 |
+   Acc: 22.1%        Acc: 22.1%      Acc: 66.4%        Acc: 66.4%
+   k: 0.000          k: 0.000        k: +0.096         k: +0.096
+                                          |
+                      +---------------------------+
+                      |   Severity Assignment     |
+                      |   Score >= P96 -> Contra  |
+                      |   Score >= P92 -> Major   |
+                      |   Score <= P2  -> Minor   |
+                      |   Otherwise   -> Moderate |
+                      +-----------+---------------+
+                                  |
+                      +---------------------------+
+                      |   Recalibrated DDI        |
+                      |   Knowledge Graph         |
+                      |   (759,774 DDIs)          |
+                      +---------------------------+
+\end{verbatim}
 
 \subsection{S1.1 Zero-Shot Classification}
 
@@ -153,7 +346,71 @@ FUNCTION EvidenceBasedClassify(description, W)
 END FUNCTION
 \end{verbatim}
 
+\subsection{S1.4 Method Performance Comparison}
+
+\begin{table}[H]
+\centering
+\caption{Method Performance Comparison (DDInter Validation, test set n=11,150).}
+\label{tab:method_performance}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Method} & \textbf{Exact Accuracy (95\% CI)} & \textbf{Adjacent Accuracy} & \textbf{Cohen's $\kappa$} \\
+\midrule
+Zero-Shot BART-MNLI & 22.1\% (21.3--22.9\%) & 95.6\% & 0.000 \\
+Confidence-Weighted & 22.1\% (21.3--22.9\%) & 95.6\% & 0.000 \\
+Rule-Based & 66.4\% (65.5--67.3\%) & 99.3\% & +0.096$^\dagger$ \\
+Evidence-Based & 66.4\% (65.5--67.3\%) & 99.4\% & +0.096$^\dagger$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent McNemar's test (Rule-Based vs. Zero-Shot): $\chi^2$=2750.4, $p < 2.2 \times 10^{-16}$ (see S2.2)\\
+$^\dagger$Cohen's $\kappa$ is significant ($z$=4.77, $p < 0.0001$; see S2.4)
+
+\bigskip
+\noindent\textbf{Per-Class Performance (Rule-Based Classifier):}
+
+\begin{table}[H]
+\centering
+\caption{Per-class recall for the rule-based classifier (test set n=11,150).}
+\label{tab:per_class_recall}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Severity Class} & \textbf{Recall} & \textbf{Prevalence} & \textbf{Notes} \\
+\midrule
+Moderate & 83.5\% & 73.4\% & Majority class \\
+Major & 20.4\% & 22.1\% & 92nd percentile threshold \\
+Minor & 11.4\% & 4.4\% & Low prevalence \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The rule-based classifier correctly identified most moderate interactions (83.5\%), the majority class. Major interactions exhibited lower recall (20.4\%) due to the 92nd percentile threshold used for classification. Minor interactions remained challenging (11.4\% recall) because of their low prevalence in the test set (4.4\%). The substantial overlap in score distributions across severity classes (see S2.6) explains this performance ceiling.
+
+\subsection{S1.5 Severity Distribution: Original vs. Recalibrated}
+
+\begin{table}[H]
+\centering
+\caption{Severity Distribution: Original vs. Recalibrated.}
+\label{tab:severity_distribution}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Severity} & \textbf{Original} & \textbf{Recalibrated} & \textbf{Target} \\
+\midrule
+Contraindicated & 56.9\% & 1.9\% & 4\% \\
+Major & 43.0\% & 26.7\% & 18\% \\
+Moderate & $<$0.1\% & 68.2\% & 74\% \\
+Minor & 0.1\% & 3.2\% & 4\% \\
+\midrule
+JS Divergence & 0.43 & 0.007 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent JS divergence reduction: 98.4\% ($\Delta$JS = 0.42, approaching target)
+
 \section{S2: Statistical Methods}
+\label{sec:s2}
 
 \subsection{S2.1 Evaluation Metrics}
 
@@ -248,5 +505,815 @@ Chi-square goodness of fit tested whether observed frequencies differed signific
 \chi^2 = \sum_i \frac{(O_i - E_i)^2}{E_i}
 \]
 where $O_i$ = observed frequency for category $i$, $E_i$ = expected frequency for category $i$.
+
+\bigskip
+\subsection{S2.6 Score-Severity Correlation}
+
+The empirically-derived keyword weights demonstrated discriminative validity for severity classification. Mean keyword scores varied monotonically with true severity level.
+
+\begin{table}[H]
+\centering
+\caption{Keyword score statistics by true severity class.}
+\label{tab:score_severity}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Severity} & \textbf{Mean Score} & \textbf{Std Dev} & \textbf{$n$} & \textbf{95\% CI} \\
+\midrule
+Major & $+$0.93 & 1.33 & 2,464 & [0.87, 0.98] \\
+Moderate & $+$0.07 & 1.48 & 8,193 & [0.04, 0.10] \\
+Minor & $-$0.28 & 1.25 & 493 & [$-$0.39, $-$0.17] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The keyword scoring mechanism successfully discriminated severity levels: Major interactions averaged nearly one standard deviation above zero, while Minor interactions averaged below zero. The substantial within-class overlap (std $\approx$ 1.3--1.5) reflects the inherent ambiguity in DDI severity classification, where textual descriptions alone cannot perfectly predict clinical severity.
+
+\bigskip
+\subsection{S2.7 DDInter Validation Metrics}
+
+To validate our severity classifications against DDInter ground truth labels, we employed three complementary metrics:
+
+\textbf{Exact Accuracy:} The percentage of predictions matching DDInter's severity label exactly:
+\[
+\text{Exact Accuracy} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}[\hat{y}_i = y_i]
+\]
+where $\hat{y}_i$ is the predicted severity and $y_i$ is DDInter's ground truth label for DDI pair $i$.
+
+\textbf{Adjacent Accuracy:} The percentage of predictions within $\pm 1$ severity level of ground truth:
+\[
+\text{Adjacent Accuracy} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}[|\hat{y}_i - y_i| \leq 1]
+\]
+where severity levels are encoded as integers (Minor = 0, Moderate = 1, Major = 2). This metric accounts for the ordinal nature of severity classifications and captures clinically acceptable near-matches.
+
+\textbf{Cohen's $\kappa$:} Inter-rater agreement beyond chance:
+\[
+\kappa = \frac{p_o - p_e}{1 - p_e}
+\]
+where $p_o$ is the observed agreement (exact accuracy) and:
+\[
+p_e = \sum_{c} P(\hat{y} = c) \cdot P(y = c)
+\]
+is the expected agreement by chance, computed as the sum over all classes $c$ of the product of marginal probabilities.
+
+\noindent Interpretation of $\kappa$ values:
+\begin{itemize}
+    \item $\kappa > 0$: Agreement better than random chance
+    \item $\kappa = 0$: Chance-level agreement
+    \item $\kappa < 0$: Systematic disagreement (worse than chance)
+\end{itemize}
+
+\section{S3: Knowledge Graph Construction}
+\label{sec:s3}
+
+The DDI knowledge graph integrates data from multiple biomedical databases using fact-based entity linking with exact identifier matching.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{er_diagram.png}
+\caption{\textbf{Entity-Relationship diagram of the DDI knowledge graph schema.} The diagram shows the primary entities (Drug, Protein, Side Effect, Disease, Pathway) and their relationships. Drug nodes are linked to other drugs via DDI edges with severity attributes. Drugs connect to proteins through target, enzyme, carrier, and transporter relationships. Side effects and diseases are linked via SIDER and CTD databases respectively.}
+\label{fig:er_diagram}
+\end{figure}
+
+\subsection{S3.1 Data Sources}
+
+\begin{itemize}
+    \item \textbf{DrugBank XML}: Drug properties, targets, enzymes, carriers, transporters, pathways, categories, DDIs
+    \item \textbf{SIDER}: Side effect profiles (matched by drug name)
+    \item \textbf{CTD}: Drug-disease associations (matched by CAS number or drug name)
+\end{itemize}
+
+\subsection{S3.2 Entity Matching Strategy}
+
+Entities are linked using exact identifier matching (no similarity-based matching):
+\begin{enumerate}
+    \item DrugBank ID (primary identifier)
+    \item Drug Name (exact case-insensitive match)
+    \item CAS Number (chemical identifier)
+    \item ATC Code (therapeutic classification)
+\end{enumerate}
+
+\medskip
+\noindent\textbf{Algorithm 10:} Knowledge Graph Construction
+\begin{verbatim}
+FUNCTION BuildKnowledgeGraph(drugbank_xml, sider_data, ctd_data)
+  INPUT: DrugBank XML, SIDER side effects, CTD associations
+  OUTPUT: Knowledge graph G = (V, E)
+  
+  // Phase 1: Parse DrugBank XML
+  drugs <- ParseDrugBankXML(drugbank_xml)
+  FOR EACH drug IN drugs
+    ExtractIdentifiers(drug)  // DrugBank ID, name, CAS, ATC
+    ExtractTargets(drug)      // Protein targets
+    ExtractEnzymes(drug)      // Metabolizing enzymes
+    ExtractTransporters(drug) // Drug transporters
+    ExtractPathways(drug)     // Biological pathways
+    ExtractDDIs(drug)         // Drug-drug interactions
+  END FOR
+  
+  // Phase 2: Link external data sources
+  FOR EACH drug IN drugs
+    // SIDER: Side effect matching
+    IF ExactNameMatch(drug.name, sider_data) THEN
+      drug.side_effects <- LinkSiderData(drug.name)
+    END IF
+    
+    // CTD: Disease association matching
+    IF drug.cas_number IN ctd_data OR ExactNameMatch(drug.name, ctd_data) THEN
+      drug.disease_associations <- LinkCTDData(drug)
+    END IF
+  END FOR
+  
+  // Phase 3: Build graph structure
+  G <- InitializeMultiDiGraph()
+  
+  // Add nodes by type
+  FOR EACH drug IN drugs
+    AddNode(G, drug.id, type="drug", attributes=drug.properties)
+  END FOR
+  FOR EACH protein IN proteins
+    AddNode(G, protein.id, type="protein", attributes=protein.properties)
+  END FOR
+  FOR EACH side_effect IN side_effects
+    AddNode(G, "SE:" + side_effect.id, type="side_effect")
+  END FOR
+  FOR EACH disease IN diseases
+    AddNode(G, "DIS:" + disease.id, type="disease")
+  END FOR
+  FOR EACH pathway IN pathways
+    AddNode(G, pathway.id, type="pathway")
+  END FOR
+  
+  // Add edges with provenance
+  FOR EACH ddi IN drug_interactions
+    AddEdge(G, ddi.drug1, ddi.drug2, 
+            type="interacts_with",
+            severity=ddi.severity,
+            description=ddi.description,
+            provenance="DrugBank")
+  END FOR
+  FOR EACH (drug, target) IN drug_targets
+    AddEdge(G, drug.id, target.id,
+            type="targets",
+            action=target.action,
+            provenance="DrugBank")
+  END FOR
+  // ... additional edge types for enzymes, transporters, 
+  //     side effects, diseases, pathways
+  
+  RETURN G
+END FUNCTION
+\end{verbatim}
+
+\medskip
+\noindent\textbf{Algorithm 11:} Severity Recalibration Integration
+\begin{verbatim}
+FUNCTION IntegrateSeverityRecalibration(G, severity_model)
+  INPUT: Knowledge graph G, trained severity classifier
+  OUTPUT: Graph G with recalibrated severity labels
+  
+  FOR EACH edge IN G.edges WHERE edge.type = "interacts_with"
+    description <- edge.description
+    
+    // Apply rule-based severity classifier
+    score <- ComputeKeywordScore(description, severity_model.weights)
+    severity <- ClassifyByThresholds(score)
+    
+    // Update edge attributes
+    edge.original_severity <- edge.severity
+    edge.severity <- severity
+    edge.severity_score <- score
+    edge.recalibrated <- TRUE
+  END FOR
+  
+  RETURN G
+END FUNCTION
+\end{verbatim}
+
+\subsection{S3.3 Graph Statistics}
+
+The constructed knowledge graph contains:
+\begin{itemize}
+    \item 4,314 drug nodes
+    \item 759,774 DDI edges (recalibrated severity)
+    \item Protein targets, enzymes, transporters, carriers
+    \item Side effect associations (from SIDER)
+    \item Disease associations (from CTD)
+    \item Biological pathways
+\end{itemize}
+
+\section{S4: Network Analysis Methods}
+\label{sec:s4}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{network_severe_ddi_compact.png}
+\caption{\textbf{Severe DDI subnetwork showing Contraindicated and Major interactions.} Red edges indicate Contraindicated interactions; orange edges indicate Major interactions. Node colors represent ATC drug classes. High-risk drugs cluster around central hubs.}
+\label{fig:severe_ddi}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{DDI Network Topological Metrics.}
+\label{tab:network_metrics}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Metric} & \textbf{\#} \\
+\midrule
+Total Drug Nodes & 4,314 \\
+Total DDI Edges & 379,917 \\
+Network Density & 0.041 \\
+Average Degree & 176.1 \\
+Median Degree & 74 \\
+Standard Deviation & 321.9 \\
+Clustering Coefficient & 0.70 \\
+Network Diameter & 5 \\
+Average Path Length & 2.19 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent \# = Number
+
+\begin{table}[H]
+\centering
+\caption{DDI Subnetwork Statistics by Severity.}
+\label{tab:subnetwork_stats}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Severity} & \textbf{Edges} & \textbf{Pct} & \textbf{Density} & \textbf{Avg Degree} & \textbf{Components} \\
+\midrule
+Moderate & 304,399 & 80.1\% & 0.036 & 148.6 & 1 \\
+Minor & 35,343 & 9.3\% & 0.016 & 33.8 & 1 \\
+Contraindicated & 22,153 & 5.8\% & 0.084 & 61.1 & 1 \\
+Major & 18,022 & 4.7\% & 0.082 & 54.2 & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Edges = number of unique drug pairs; Pct = percentage of total DDIs; Density = ratio of actual to maximum possible edges; Avg Degree = mean interactions per drug; Components = number of disconnected subgraphs (1 = fully connected)
+
+\subsection{S4.1 Betweenness Centrality}
+
+Betweenness centrality quantifies how often a drug lies on the shortest path between other drug pairs in the network. Drugs with high betweenness centrality act as ``bridges'' within the interaction network and reflect indirect effects between different drug clusters. Local anesthetics such as Procaine and Lidocaine, as well as the biologics Sotatercept and Abciximab, showed high betweenness. These agents interacted with multiple drug classes and bridged distinct therapeutic groups, respectively.
+
+\subsection{S4.2 Eigenvector Centrality}
+
+Eigenvector centrality emphasizes not only the number of connections a drug has but also the importance of its neighboring nodes. A drug with a high score tends to interact with other highly connected drugs. Antiarrhythmics such as Quinidine and cardiovascular agents including Propranolol, Verapamil, and Isradipine were at the top eigenvector centrality rankings, which showed their tendency to interact with other high-risk medications.
+
+\subsection{S4.3 PageRank Centrality}
+
+PageRank centrality measures how likely a drug is to be reached through random traversal through the interaction network. It serves as an indicator of high-interaction targets, which are most likely to be affected when new drugs are added to a regimen. A drug has high PageRank if many other drugs interact with it, especially if those drugs themselves have many interactions. Local anesthetics (Procaine, Lidocaine, Benzocaine) exhibited the highest PageRank scores, which indicated their extensive interaction profiles with multiple drug classes.
+
+\subsection{S4.4 Louvain Community Detection}
+
+The Louvain algorithm is a greedy optimization method for detecting community structure in large networks. It operates in two iterative phases:
+
+\textbf{Phase 1 (Local Moving):} Each node is initially assigned to its own community. For each node $i$, the algorithm calculates the modularity gain from moving $i$ to each neighboring community $C$:
+\[
+\Delta Q = \left[ \frac{\Sigma_{in} + 2k_{i,in}}{2m} - \left( \frac{\Sigma_{tot} + k_i}{2m} \right)^2 \right] - \left[ \frac{\Sigma_{in}}{2m} - \left( \frac{\Sigma_{tot}}{2m} \right)^2 - \left( \frac{k_i}{2m} \right)^2 \right]
+\]
+where $\Sigma_{in}$ is the sum of weights inside community $C$, $\Sigma_{tot}$ is the total degree of nodes in $C$, $k_i$ is the degree of node $i$, $k_{i,in}$ is the sum of weights from $i$ to nodes in $C$, and $m$ is the total edge weight of the graph.
+
+\textbf{Phase 2 (Aggregation):} Communities are collapsed into super-nodes, creating a new network where edge weights between super-nodes equal the sum of inter-community edges.
+
+These phases repeat until no further modularity improvement is possible, optimizing the global modularity:
+\[
+Q = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - \frac{k_i k_j}{2m} \right] \delta(c_i, c_j)
+\]
+
+\begin{table}[H]
+\centering
+\caption{Community detection results ($Q = 0.23$).}
+\label{tab:community_detection}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Community} & \textbf{Size} & \textbf{\%} \\
+\midrule
+1 & 1,235 & 28.6\% \\
+2 & 858 & 19.9\% \\
+3 & 766 & 17.8\% \\
+4 & 727 & 16.9\% \\
+5 & 708 & 16.4\% \\
+6 & 20 & 0.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{louvain_network.png}
+\caption{\textbf{Louvain community detection results.} DDI network visualization with nodes colored by detected community membership. Six distinct communities were identified ($Q = 0.23$), with node positions determined by force-directed layout. Edge colors indicate interaction severity.}
+\label{fig:louvain_community}
+\end{figure}
+
+\noindent The Louvain algorithm identified 6 distinct drug communities with modularity $Q = 0.23$, indicating meaningful community structure. The largest community (28.6\%) primarily contained cardiovascular agents, while smaller communities grouped drugs by shared metabolic pathways or therapeutic targets.
+
+\section{S5: Reproducibility}
+\label{sec:s5}
+
+\section{S6: Polypharmacy Risk Index (PRI) Derivation}
+\label{sec:s6}
+
+The Polypharmacy Risk Index (PRI) quantifies overall interaction risk for individual drugs based on network topology and severity profiles:
+
+\[
+\text{PRI}(d) = 0.25 \cdot C_{\text{degree}}(d) + 0.30 \cdot C_{\text{weighted}}(d) + 0.20 \cdot C_{\text{betweenness}}(d) + 0.25 \cdot S(d)
+\]
+
+\textbf{Degree centrality} $C_{\text{degree}}(d)$ measures how many potential interactions a drug possesses. It captures the interaction burden as the number of drugs interacting with the drug, normalized by the maximum possible degree in the network. The 0.25 weight was specified based upon the fundamental importance of interaction count as a baseline risk indicator, while avoiding over-emphasis without considering severity.
+
+\textbf{Weighted degree centrality} $C_{\text{weighted}}(d)$ extends the simple degree measure by incorporating severity information. It was calculated as the severity-weighted sum of all interactions and was assigned a weight of 0.30 in the Polypharmacy Risk Index.
+
+\textbf{Betweenness centrality} $C_{\text{betweenness}}(d)$ quantifies the role of a drug in risk propagation. Drugs with high betweenness centrality serve as ``bridges'' between interaction clusters and may facilitate cascade effects when multiple medications are combined. The low weight assignment (0.20) reflects the fact that direct interaction measures are more immediately relevant to individual patient risk assessment, compared to system-level insights into potential cascade effects derived from network topology.
+
+\textbf{Severity profile score} $S(d)$ measures the proportion of interactions of a drug that were classified as contraindicated or of major severity (weight: 0.25). This metric identifies drugs that, while potentially having fewer total interactions, are predominantly involved in high-risk combinations. The weight of 0.25 was assigned to ensure that drugs with fewer but predominantly dangerous interactions were appropriately flagged.
+
+Contraindicated interactions received the highest severity weight of 10.0 in the weighted degree calculation, followed by major interactions (7.0), moderate interactions (4.0), and minor interactions (1.0) (see S7 for details).
+
+\begin{table}[H]
+\centering
+\caption{Top 10 Drugs by Total Interaction Count.}
+\label{tab:top10_drugs}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Drug} & \textbf{Total} & \textbf{\#Contraindicated} & \textbf{\%Contraindicated} & \textbf{PRI} \\
+\midrule
+Quinidine & 4,782 & 258 & 5.4\% & 0.557 \\
+Procaine & 4,719 & 225 & 4.8\% & 0.607 \\
+Verapamil & 4,208 & 272 & 6.5\% & 0.459 \\
+Lidocaine & 4,208 & 119 & 2.8\% & 0.548 \\
+Propranolol & 4,184 & 132 & 3.2\% & 0.426 \\
+Warfarin & 4,145 & 298 & 7.2\% & 0.563 \\
+Isradipine & 4,142 & 33 & 0.8\% & 0.352 \\
+Pindolol & 4,048 & 495 & 12.2\% & 0.513 \\
+Indomethacin & 4,045 & 147 & 3.6\% & 0.508 \\
+Nicardipine & 4,044 & 283 & 7.0\% & 0.461 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{S7: Rule-Based Substitution Framework}
+\label{sec:s7}
+
+\subsection{S7.1 Candidate Selection}
+
+For a given drug to be replaced, candidates are identified through therapeutic class matching using the Anatomical Therapeutic Chemical (ATC) classification system. Alternative drugs must share the same ATC Level 3 code as the original drug, guaranteeing pharmacological equivalence within the same therapeutic subgroup and ensuring any recommended substitution has a similar mechanism of action.
+
+\begin{table}[H]
+\centering
+\caption{ATC Hierarchy for Candidate Filtering.}
+\label{tab:atc_hierarchy}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{ATC Level} & \textbf{Description} \\
+\midrule
+Level 1 & Anatomical main group (C = Cardiovascular) \\
+Level 2 & Therapeutic subgroup (C01 = Cardiac therapy) \\
+Level 3 & Pharmacological subgroup (C01B = Antiarrhythmics) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{S7.2 Alternative Recommendation Score (ARS)}
+
+Candidates meeting the filtering criteria are ranked by the Alternative Recommendation Score (ARS), which combines normalized regimen-specific severity reduction with network-derived Polypharmacy Risk Index improvement:
+
+\[
+\text{ARS}(d_{\text{alt}}) = 0.70 \times \text{SeverityReduction}(d_{\text{alt}}) + 0.30 \times \text{PRI\_Improvement}(d_{\text{alt}})
+\]
+
+\textbf{Severity Reduction} (weight: 0.70) quantifies the decrease in total severity-weighted interactions when the alternative drug replaces the original within the current regimen. This component receives the dominant weight because it directly measures immediate DDI risk reduction relevant to patient safety. Higher values indicate that the alternative drug has fewer or less severe interactions with other medications in the patient's regimen.
+
+\textbf{PRI Improvement} (weight: 0.30) captures the network-level risk reduction when substituting the drug, considering the alternative's overall interaction profile across the entire knowledge graph. This component supports long-term optimization by identifying alternatives that have generally safer interaction profiles beyond the immediate regimen context.
+
+Higher ARS scores indicate safer substitutions; candidates are ranked in descending order to prioritize alternatives offering the greatest combined benefit in both regimen-specific and network-wide risk reduction.
+
+\subsection{S7.3 Severity Reduction Component (Weight: 70\%)}
+
+Quantifies the decrease in total severity-weighted interactions when the alternative drug replaces the original within the current regimen.
+
+\begin{table}[H]
+\centering
+\caption{Severity Weights for ARS Calculation.}
+\label{tab:severity_weights_ars}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Severity} & \textbf{Weight} \\
+\midrule
+Contraindicated & 10.0 \\
+Major & 7.0 \\
+Moderate & 4.0 \\
+Minor & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\[
+\text{SeverityReduction} = \frac{S_{\text{original}} - S_{\text{alternative}}}{S_{\text{original}}}
+\]
+where $S$ = sum of severity weights for all interactions with regimen drugs.
+
+\subsection{S7.4 PRI Improvement Component (Weight: 30\%)}
+
+Captures the network-level risk reduction when substituting the drug:
+\[
+\text{PRI\_Improvement} = \frac{\text{PRI}_{\text{original}} - \text{PRI}_{\text{alternative}}}{\text{PRI}_{\text{original}}}
+\]
+
+\begin{table}[H]
+\centering
+\caption{Component Weight Rationale for ARS.}
+\label{tab:ars_weights}
+\begin{tabular}{@{}lcp{7cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Weight} & \textbf{Rationale} \\
+\midrule
+Severity Reduction & 0.70 & Direct measure of immediate DDI risk reduction; addresses patient safety concerns \\
+PRI Improvement & 0.30 & Network-level risk considering all connections; supports long-term optimization \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{S8: Algorithm Pseudocode}
+\label{sec:s8}
+
+\subsection{S8.1 ATC-Based Candidate Filtering}
+
+\begin{verbatim}
+FUNCTION FindCandidates(drug_to_replace, knowledge_graph)
+  INPUT: drug_to_replace (DrugBank ID), knowledge_graph
+  OUTPUT: List of candidate alternatives
+  
+  original_atc <- GetATCCodes(drug_to_replace)
+  original_atc_level3 <- ExtractLevel3(original_atc)
+  candidates <- []
+  
+  FOR EACH drug IN knowledge_graph.drugs
+    IF drug.id != drug_to_replace THEN
+      drug_atc <- GetATCCodes(drug.id)
+      drug_atc_level3 <- ExtractLevel3(drug_atc)
+      IF HasOverlap(original_atc_level3, drug_atc_level3) THEN
+        candidates.append(drug)
+      END IF
+    END IF
+  END FOR
+  RETURN candidates
+END FUNCTION
+\end{verbatim}
+
+\subsection{S8.2 Severity Reduction Calculation}
+
+\begin{verbatim}
+FUNCTION CalculateSeverityReduction(original, alternative, regimen, kg)
+  INPUT: original_drug, alternative_drug, regimen, knowledge_graph
+  OUTPUT: Normalized severity reduction score [0, 1]
+  
+  weights <- {Contraindicated: 10, Major: 7, Moderate: 4, Minor: 1}
+  
+  original_severity <- 0
+  FOR EACH other_drug IN regimen
+    interaction <- kg.GetInteraction(original, other_drug)
+    IF interaction EXISTS THEN
+      original_severity += weights[interaction.severity]
+    END IF
+  END FOR
+  
+  alternative_severity <- 0
+  FOR EACH other_drug IN regimen
+    interaction <- kg.GetInteraction(alternative, other_drug)
+    IF interaction EXISTS THEN
+      alternative_severity += weights[interaction.severity]
+    END IF
+  END FOR
+  
+  IF original_severity > 0 THEN
+    RETURN Max(0, (original_severity - alternative_severity) / original_severity)
+  ELSE
+    RETURN 0
+  END IF
+END FUNCTION
+\end{verbatim}
+
+\subsection{S8.3 Alternative Recommendation Score}
+
+\begin{verbatim}
+FUNCTION CalculateARS(original, alternative, regimen, kg)
+  INPUT: original_drug, alternative_drug, regimen, knowledge_graph
+  OUTPUT: ARS score [0, 1]
+  
+  w_severity <- 0.70
+  w_pri <- 0.30
+  
+  severity_reduction <- CalculateSeverityReduction(original, alternative, 
+                                                    regimen, kg)
+  
+  pri_original <- kg.GetPRI(original)
+  pri_alternative <- kg.GetPRI(alternative)
+  IF pri_original > 0 THEN
+    pri_improvement <- Max(0, (pri_original - pri_alternative) / pri_original)
+  ELSE
+    pri_improvement <- 0
+  END IF
+  
+  RETURN w_severity * severity_reduction + w_pri * pri_improvement
+END FUNCTION
+\end{verbatim}
+
+\subsection{S8.4 Find Best Alternatives}
+
+\begin{verbatim}
+FUNCTION FindBestAlternatives(drug_to_replace, regimen, kg, top_k=5)
+  INPUT: drug_to_replace, regimen, knowledge_graph, top_k
+  OUTPUT: Ranked list of (alternative, ARS) tuples
+  
+  candidates <- FindCandidates(drug_to_replace, kg)
+  scored_alternatives <- []
+  
+  FOR EACH candidate IN candidates
+    ars <- CalculateARS(drug_to_replace, candidate, regimen, kg)
+    scored_alternatives.append((candidate, ars))
+  END FOR
+  
+  sorted_alternatives <- SortByScore(scored_alternatives, descending=True)
+  RETURN sorted_alternatives[:top_k]
+END FUNCTION
+\end{verbatim}
+
+\section{S9: Validation}
+\label{sec:s9}
+
+\begin{table}[H]
+\centering
+\caption{PRI Validation Against FAERS Adverse Event Data.}
+\label{tab:pri_validation}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{Interpretation} \\
+\midrule
+Sample Size & 87 drugs & Drugs with $\geq$100 FAERS reports \\
+Spearman $\rho$ & 0.296 & KG risk vs log(serious event count) \\
+95\% CI & [0.090, 0.483] & Bootstrap confidence interval (n=1000) \\
+P-value & 0.005 & Statistical significance \\
+AUC-ROC & 0.625 & Discriminative ability for high-risk drugs \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Spearman $\rho$ measures monotonic correlation between PRI and log-transformed serious adverse event counts. AUC-ROC quantifies the ability to discriminate high-risk drugs (top quartile) from others; 0.5 = random, 1.0 = perfect. Bootstrap CI computed with 1,000 resamples.
+
+\subsection{S9.1 Clinical Evidence Alignment}
+
+\textbf{Anticoagulant Substitution.} A patient-level meta-analysis of 71,000 patients with atrial fibrillation from major trials, conducted in 2022 by the American Heart Association, showed that substitution of warfarin with direct oral anticoagulants (dabigatran, apixaban, rivaroxaban) was more effective in reducing the risk of stroke or systemic embolism to 3.01\%, compared with 3.69\% for warfarin (hazard ratio [HR] 0.81). This reduced mortality (7.76\% vs. 8.42\%) and significantly decreased intracranial hemorrhage (0.63\% vs. 1.40\%; HR 0.45), while showing a trend toward lower major bleeding (5.05\% vs. 5.94\%; HR 0.86).\textsuperscript{1} This aligned with the substitution recommendations (warfarin to dabigatran, apixaban, rivaroxaban), which indicated relative reductions in adverse outcomes when switching from warfarin to these DOACs. Although evidence showed no significant difference between dabigatran, apixaban, and rivaroxaban in the risk of stroke or systemic embolism, apixaban has been associated with a lower risk of major bleeding compared with both dabigatran and rivaroxaban in multinational cohorts, whereas rivaroxaban often carries a higher bleeding risk relative to dabigatran.\textsuperscript{2,3} This slightly deviates from our findings: in our analysis, switching from warfarin to dabigatran showed a severity reduction of 0.938, a $\Delta$PRI of 0.528, and an ARS of 0.815; switching to apixaban had a severity reduction of 0.383, a $\Delta$PRI of 0.215, and an ARS of 0.333; and switching to rivaroxaban had a severity reduction of 0.313, a $\Delta$PRI of 0.176, and an ARS of 0.272. The discrepancies might have arisen because ARS quantifies reductions in documented drug-drug interactions across the network, rather than intrinsic bleeding risk, which is why dabigatran's lower interaction burden yielded a higher ARS despite apixaban's better bleeding profile.
+
+\textbf{Beta-Blocker Substitution.} Among beta-blockers, atenolol provided the largest severity reduction (0.469), a $\Delta$PRI of 0.200, and an ARS of 0.389, which may be due to its predominant renal excretion and minimal CYP metabolism. Atenolol is primarily eliminated through the kidneys, whereas bisoprolol is cleared approximately half by renal excretion and half via hepatic metabolism. In contrast, metoprolol and carvedilol are largely metabolized by the liver enzyme CYP2D6, which may increase their potential for drug-drug interactions.\textsuperscript{4}
+
+\textbf{Statin Substitution.} The cholesterol guideline from 2018 American College of Cardiology / American Heart Association listed Simvastatin, Lovastatin, and Pravastatin as low to moderate-intensity statins (depending on dose), whereas Atorvastatin is considered moderate to high-intensity based upon lipid lowering potency.\textsuperscript{5} Switching from simvastatin to lovastatin showed a severity reduction of 0.498, $\Delta$PRI of 0.096, and ARS of 0.377; switching to pravastatin yielded identical values; and switching to atorvastatin showed a lower severity reduction (0.233), $\Delta$PRI (0.045), and ARS (0.177). The discrepancy between clinical outcome superiority of atorvastatin\textsuperscript{6,7} and its lower ARS in the network likely reflected a reduction in drug-drug interaction burden rather than an effect on LDL-lowering efficacy or cardiovascular event reduction. Thus, while atorvastatin may provide stronger cardiovascular protection, pravastatin or lovastatin may produce greater interaction-related risk reduction within a drug-drug interaction framework.
+
+\textbf{Clinical Utility Note.} It is important to note that the tool, designed for DDI risk assessment and alternative recommendation, should be used only as a reference and not as a definitive guide for clinical decision-making.
+
+\subsection{S9.2 References for Clinical Evidence}
+
+\begin{enumerate}
+\item Goto S, Goto S. A Patient-Level Meta-Analysis: The End of the Era of Direct Oral Anticoagulant Developmental Trials in Patients With Atrial Fibrillation? \textit{Circulation}. 2022;145(4):256-258. doi:10.1161/CIRCULATIONAHA.121.058159
+
+\item Lau WCY, Torre CO, Man KKC, et al. Comparative Effectiveness and Safety Between Apixaban, Dabigatran, Edoxaban, and Rivaroxaban Among Patients With Atrial Fibrillation: A Multinational Population-Based Cohort Study. \textit{Ann Intern Med}. 2022;175(11):1515-1524. doi:10.7326/M22-0511
+
+\item Noseworthy PA, Yao X, Abraham NS, Sangaralingham LR, McBane RD, Shah ND. Direct Comparison of Dabigatran, Rivaroxaban, and Apixaban for Effectiveness and Safety in Nonvalvular Atrial Fibrillation. \textit{Chest}. 2016;150(6):1302-1312. doi:10.1016/j.chest.2016.07.013
+
+\item Brodde OE, Kroemer H. Drug-Drug Interactions of $\beta$-Adrenoceptor Blockers. \textit{Arzneimittelforschung}. 2011;53(12):814-822. doi:10.1055/s-0031-1299835
+
+\item Grundy SM, Stone NJ, Bailey AL, et al. 2018 AHA/ACC/AACVPR/AAPA/ABC/ACPM/ADA/AGS/APhA/ASPC/NLA/PCNA Guideline on the Management of Blood Cholesterol: A Report of the American College of Cardiology/American Heart Association Task Force on Clinical Practice Guidelines. \textit{Circulation}. 2019;139(25). doi:10.1161/CIR.0000000000000625
+
+\item Naci H, Brugts JJ, Fleurence R, Tsoi B, Toor H, Ades A. Comparative benefits of statins in the primary and secondary prevention of major coronary events and all-cause mortality: a network meta-analysis of placebo-controlled and active-comparator trials. \textit{Eur J Prev Cardiolog}. 2013;20(4):641-657. doi:10.1177/2047487313480435
+
+\item Nissen SE, Tuzcu EM, Schoenhagen P, et al. Effect of Intensive Compared With Moderate Lipid-Lowering Therapy on Progression of Coronary Atherosclerosis: A Randomized Controlled Trial. \textit{JAMA}. 2004;291(9):1071. doi:10.1001/jama.291.9.1071
+\end{enumerate}
+
+% ==============================================================================
+\newpage
+\section{S10: Web Application Architecture}
+\label{sec:s10}
+
+\noindent\textbf{Three-Column User Interface}
+
+\begin{verbatim}
++=====================================================================+
+|                    Drug Interaction Analyzer                        |
+|         AI-based DDI Risk Analysis and Alternative Recommendation   |
++=====================================================================+
+|                |                          |                         |
+|     INPUT      |         REPORT           |       ASSISTANT         |
+|                |                          |                         |
++----------------+--------------------------+-------------------------+
+|                |                          |                         |
+| [Tabs]         |  Risk Summary            |  [Llama 3 7B]           |
+| +------------+ |  - Overall risk level    |                         |
+| | Drugs      | |  - Interaction count     |  Chatbot interface      |
+| +------------+ |  - Severity breakdown    |  for follow-up          |
+| | Text       | |                          |  questions about:       |
+| +------------+ |  Detected DDIs           |  - Mechanisms           |
+| | Photo      | |  - Drug A + Drug B       |  - Alternatives         |
+| +------------+ |  - Severity: Major       |  - Clinical context     |
+|                |  - Description           |                         |
+| Drug List:     |                          |  +-------------------+  |
+| warfarin,      |  PRI Analysis            |  | User: Why is this |  |
+| aspirin,       |  - Per-drug PRI scores   |  | interaction       |  |
+| metoprolol     |  - Risk components       |  | dangerous?        |  |
+|                |                          |  +-------------------+  |
+| [Validate]     |  Safer Alternatives      |  +-------------------+  |
+| [Analyze]      |  - Alternative 1 (ARS)   |  | AI: Warfarin and  |  |
+|                |  - Alternative 2 (ARS)   |  | aspirin both...   |  |
+| Alternative    |  - Risk reduction %      |  +-------------------+  |
+| Options:       |                          |                         |
+| [ ] Current    |  Clinical Notes          |  [Ask a question...]    |
+| [ ] Suggested  |  - Monitoring advice     |  [Send]                 |
+|                |  - Contraindications     |                         |
++----------------+--------------------------+-------------------------+
+\end{verbatim}
+
+\noindent\textbf{Backend Processing Pipeline}
+
+\begin{verbatim}
+                      +---------------------------+
+                      |     User Input Layer      |
+                      |  (Drug List / Text / OCR) |
+                      +-----------+---------------+
+                                  |
+             +--------------------+--------------------+
+             |                    |                    |
+   +---------v--------+  +--------v---------+  +------v--------+
+   |   Direct Entry   |  |   Narrative      |  |  Image Upload |
+   |   (Drug List)    |  |   Extraction     |  |  (Tesseract)  |
+   |                  |  |                  |  |               |
+   | - Separator      |  | - Regex pattern  |  | - Grayscale   |
+   |   parsing        |  | - Dosage removal |  |   conversion  |
+   | - Comma, +, ;    |  | - Bigram match   |  | - OCR extract |
+   +---------+--------+  +--------+---------+  +------+--------+
+             |                    |                    |
+             +--------------------+--------------------+
+                                  |
+                      +-----------v---------------+
+                      |   Drug Identification     |
+                      |   (Fuzzy Matching)        |
+                      |                           |
+                      | - Alias resolution        |
+                      | - SequenceMatcher >= 0.6  |
+                      | - Partial string match    |
+                      +-----------+---------------+
+                                  |
+                      +-----------v---------------+
+                      |   Knowledge Graph Lookup  |
+                      |   (4,313 drugs)           |
+                      |                           |
+                      | - DrugBank ID resolution  |
+                      | - ATC code indexing       |
+                      | - DDI edge retrieval      |
+                      +-----------+---------------+
+                                  |
+        +-------------+-----------+-----------+-------------+
+        |             |           |           |             |
++-------v-------+ +---v---+ +-----v-----+ +---v-----------+ 
+|  Pairwise DDI | |  PRI  | | Severity  | | Alternative   |
+|  Detection    | | Calc  | | Classify  | | Finder        |
+|               | |       | |           | |               |
+| - All pairs   | | - C_d | | - Contra  | | - ATC class   |
+| - Index lookup| | - C_w | | - Major   | | - Risk delta  |
+| - 759,774 DDIs| | - C_b | | - Moderate| | - Top-5 safer |
++-------+-------+ +---+---+ +-----+-----+ +-------+-------+
+        |             |           |               |
+        +-------------+-----------+---------------+
+                                  |
+                      +-----------v---------------+
+                      |   Risk Assessment         |
+                      |                           |
+                      | PRI = 0.25*C_d + 0.30*C_w |
+                      |     + 0.20*C_b + 0.25*S   |
+                      |                           |
+                      | Risk Level Classification |
+                      | - High: PRI > 0.5         |
+                      | - Medium: 0.3 <= PRI <=0.5|
+                      | - Low: PRI < 0.3          |
+                      +-----------+---------------+
+                                  |
+             +--------------------+--------------------+
+             |                                         |
+   +---------v---------+                   +-----------v-----------+
+   |   Report Output   |                   |   Chat Assistant      |
+   |                   |                   |                       |
+   | - Risk summary    |                   | - Llama 3 7B          |
+   | - DDI details     |                   | - Context injection   |
+   | - Alternatives    |                   | - Follow-up queries   |
+   | - Clinical notes  |                   | - Mechanism explain   |
+   +-------------------+                   +-----------------------+
+\end{verbatim}
+
+\subsection{S10.1 Input Processing Pipeline}
+
+The web application accepts drug input through three modalities:
+
+\begin{enumerate}
+\item \textbf{Direct Entry:} Users enter drug names separated by commas, plus signs (+), semicolons, or newlines. The parser normalizes all separators and removes duplicates while preserving order.
+
+\item \textbf{Narrative Extraction:} Natural language descriptions such as ``I take cardace 5mg in the morning and aspirin at night'' are processed by removing dosage patterns (mg, ml, mcg), frequency terms (once daily, twice a day), and timing phrases (morning, with meals). Remaining words are matched against the drug database using both exact matching and fuzzy string similarity (threshold $\geq$ 0.85 for bigrams, $\geq$ 0.88 for single words).
+
+\item \textbf{OCR Processing:} Prescription images are converted to grayscale and processed with Tesseract OCR. The extracted text is then passed through the narrative extraction pipeline.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{input_drugs.png}
+    \subcaption{Drug List Entry}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{input_text.png}
+    \subcaption{Narrative Text Extraction}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{input_photo.png}
+    \subcaption{Prescription Photo OCR}
+\end{minipage}
+\caption{Web application input modalities. (a) Direct drug list entry with comma/plus-sign separators. (b) Natural language narrative extraction with automatic drug name identification. (c) Prescription image upload with OCR-based text extraction.}
+\label{fig:input_modalities}
+\end{figure}
+
+\subsection{S10.2 Report Generation}
+
+The comprehensive DDI report includes the following components:
+
+\begin{enumerate}
+\item \textbf{Interaction Summary:} All detected DDIs with severity classification (contraindicated, major, moderate, minor) and mechanistic descriptions from the knowledge graph
+\item \textbf{Polypharmacy Risk Score:} Combined risk assessment using the PRI formula with weighted contributions from drug count ($C_d$), severity weights ($C_w$), burden score ($C_b$), and semantic similarity ($S$)
+\item \textbf{Clinical Summary:} Concise overview of key findings including highest-risk interactions and recommended monitoring
+\item \textbf{Per-Drug Risk Index:} Individual PRI scores enabling identification of the highest-contributing drugs to overall regimen risk
+\item \textbf{Monitoring Recommendations:} Specific clinical monitoring parameters based on interaction mechanisms (INR for anticoagulant interactions, electrolytes for diuretic combinations)
+\item \textbf{Drug Details:} Knowledge graph properties including ATC classification, mechanism of action, and pharmacokinetic parameters
+\item \textbf{Alternative Suggestions:} Safer therapeutic alternatives ranked by ARS score from the same pharmacological class
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+% Left panel: a, b, c, d
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{report_1.png}
+    \subcaption{Interactions with severity and description}
+    \vspace{0.3em}
+    
+    \includegraphics[width=\textwidth]{report_2.png}
+    \subcaption{Combined polypharmacy risk score}
+    \vspace{0.3em}
+    
+    \includegraphics[width=\textwidth]{report_3.png}
+    \subcaption{Clinical summary}
+    \vspace{0.3em}
+    
+    \includegraphics[width=\textwidth]{report_4.png}
+    \subcaption{Polypharmacy risk index}
+\end{minipage}
+\hfill
+% Right panel: e, f, g
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{report_5.png}
+    \subcaption{Monitoring recommendation}
+    \vspace{0.3em}
+    
+    \includegraphics[width=\textwidth]{report_6.png}
+    \subcaption{Drug details}
+    \vspace{0.3em}
+    
+    \includegraphics[width=\textwidth]{report_7.png}
+    \subcaption{Alternative suggestion}
+\end{minipage}
+\caption{Web application report output. (a) Detected DDIs with severity and descriptions. (b) Combined polypharmacy risk score. (c) Clinical summary. (d) Polypharmacy risk index per drug. (e) Monitoring recommendations. (f) Drug details from knowledge graph. (g) Alternative drug suggestions.}
+\label{fig:report_output}
+\end{figure}
+
+\subsection{S10.3 Chat Assistant}
+
+The integrated chat assistant utilizes Llama 3 7B and is both knowledge graph-aware and generated report-aware, enabling contextual responses to user queries about their specific drug interactions and risk assessment results.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.35\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{chatbot_1.png}
+    \subcaption{User query about drug interaction}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.35\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{chatbot_2.png}
+    \subcaption{AI-generated response with explanation}
+\end{minipage}
+\caption{Web application chat assistant. The integrated Llama 3 7B chatbot provides (a) contextual responses to user queries about identified drug interactions and (b) detailed mechanistic explanations and clinical guidance.}
+\label{fig:chatbot}
+\end{figure}
 
 \end{document}
