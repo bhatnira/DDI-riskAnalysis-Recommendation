@@ -127,6 +127,7 @@ This supplementary document provides detailed methodological descriptions, algor
         \item[] S10.2 Report Generation
         \item[] S10.3 Chat Assistant
     \end{itemize}
+    \item[] S11: Hardware and Software \dotfill \pageref{sec:s11}
 \end{itemize}
 
 \vspace{1em}
@@ -1315,5 +1316,10 @@ The integrated chat assistant utilizes Llama 3 7B and is both knowledge graph-aw
 \caption{Web application chat assistant. The integrated Llama 3 7B chatbot provides (a) contextual responses to user queries about identified drug interactions and (b) detailed mechanistic explanations and clinical guidance.}
 \label{fig:chatbot}
 \end{figure}
+
+\section{S11: Hardware and Software}
+\label{sec:s11}
+
+All development, experimentation, and analysis were performed on a workstation equipped with an Intel Core Ultra 9 285K processor, 128 GB RAM, and an NVIDIA RTX PRO 5000 Blackwell GPU (48 GB VRAM). The system ran Python 3.9.25. Core data processing utilized pandas (2.3.3) and NumPy (1.26.4); graph construction and network analysis employed NetworkX (3.2.1); machine learning classification used scikit-learn (1.6.1); statistical analysis relied on SciPy (1.13.1); visualizations were generated with Matplotlib (3.9.4) and Seaborn (0.13.2); zero-shot severity classification leveraged the facebook/bart-large-mnli transformer model via Hugging Face; local LLM inference for explanation synthesis and chatbot functionality was performed using Ollama with the Llama 3 7B model; and the web application interface was built with Gradio (4.19.2).
 
 \end{document}
